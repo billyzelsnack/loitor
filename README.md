@@ -1,3 +1,56 @@
+## loitor
+A ROS version of http://github.com/loitor-vis/vi_sensor_sdk2
+
+### Enhancements
+
+	TODO: Ability to update camera parameters
+    TODO: Make IMU work
+
+### Publications
+
+    /camera/left/image_raw
+	/camera/right/image_raw
+	/imu
+
+### Assumptions:
+
+* You are going to build in ~/loitor_ws  
+* You have already installed and want to use ROS kinetic
+
+### To build:
+
+    /opt/ros/kinetic/setup.bash
+    cd ~  
+    mkdir loitor_ws  
+    cd loitor_ws  
+    mkdir src  
+    catkin_make  
+    source devel/setup.bash  
+    cd src  
+    git clone https://github.com/billyzelsnack/loitor.git  
+    cd ..  
+    catkin_make  
+
+### To run:
+
+Launch a roscore in a new terminal if you don't already have a roscore running.
+
+    /opt/ros/kinetic/setup.bash
+    roscore
+
+Find your the terminal you build in or open a new one.
+
+    cd ~/loitor_ws
+    source devel/setup.bash
+    roscd loitor
+    roslaunch launch/loitor.launch
+
+
+
+
+
+----------------------------
+
 # vi_sensor_sdk_v2
 Loitor VI Sensor SDK V2
 

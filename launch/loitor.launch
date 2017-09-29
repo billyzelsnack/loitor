@@ -1,0 +1,40 @@
+<launch>
+
+<!-- inspired from maciejmatuszak/vi_sensor_sdk and using the wording/conventions the loitor pdf -->
+
+    <arg name="E_AG" default="1" /> <!--
+        0 means manual mode, you need to set the exposure value manually
+        1 means automatic mode (Limit of 0-255)
+        2 means automatic&manual mode(setting the gain value):visensor_set_gain()
+        3 means automatic gain&exposure mode
+    -->
+
+    <arg name="man_exp" default="50" /> <!--
+        Set manual exposure value (Limit of 0-255)
+    -->
+
+    <arg name="man_gain" default="200" /> <!--
+        Set manual gain value
+    -->
+    
+    <arg name="max_exp" default="300" /> <!--
+        Set maximum on automatic exposure mode (Limit of 0-255)
+    -->
+
+    <arg name="min_exp" default="5" /> <!--
+        Set minimum on automatic exposure mode (Limit of 0-255)
+    -->
+
+    <node name="loitor" pkg="loitor" type="loitor" cwd="node" output="screen">
+<!--
+        <param name="E_AG"      type="int" value="$(arg eg_mode)" />
+        <param name="man_exp"   type="int" value="$(arg man_exp)" />
+        <param name="man_gain"  type="int" value="$(arg man_gain)" />
+        <param name="max_exp"   type="int" value="$(arg max_exp)" />
+        <param name="min_exp"   type="int" value="$(arg min_exp)" />
+-->
+    </node>
+
+
+</launch>
+
