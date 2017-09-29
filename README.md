@@ -1,10 +1,13 @@
 ## loitor
 A ROS version of http://github.com/loitor-vis/vi_sensor_sdk2
 
+Please don't assume that this actually works at all at this point.
+
 ### Enhancements
 
-	TODO: Ability to update camera parameters
-    TODO: Make IMU work
+	TODO: Ability to update exposure/gain on the fly
+    TODO: Cleanup shutdown
+    TODO: Investigate "Lost an IMU frame..."
 
 ### Publications
 
