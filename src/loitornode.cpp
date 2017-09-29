@@ -27,6 +27,9 @@ using namespace cv;
 
 ros::Publisher pub_imu;
 
+
+int imufd=-1;
+
 /*
 *  用于构造cv::Mat 的左右眼图像
 */
@@ -44,53 +47,46 @@ double left_stamp,right_stamp;
 */
 bool visensor_Close_IMU_viewer=false;
 bool imu_start_transfer=false;
+
+
 void* imu_data_stream(void *)
 {
 	int counter=0;
 	imu_start_transfer=false;
 
 
-	while((!visensor_Close_IMU_viewer)&&!imu_start_transfer)usleep(1000);
+	while((!visensor_Close_IMU_viewer)&&!imu_start_transfer){ usleep(1000); }
 	while(!visensor_Close_IMU_viewer)
 	{
 		if(visensor_imu_have_fresh_data())
            	{
-			counter++;
-			// 每隔20帧显示一次imu数据
-			if(counter>=20) 
+
+
+			visensor_imudata imudata;
+			if(!visensor_get_imudata_latest(&imudata))
 			{
-				//cout<<"visensor_imudata_pack->a : "<<visensor_imudata_pack.ax<<" , "<<visensor_imudata_pack.ay<<" , "<<visensor_imudata_pack.az<<endl;
-				//float ax=visensor_imudata_pack.ax;
-				//float ay=visensor_imudata_pack.ay;
-				//float az=visensor_imudata_pack.az;
-				//cout<<"visensor_imudata_pack->a : "<<sqrt(ax*ax+ay*ay+az*az)<<endl;
-				//cout<<"imu_time : "<<visensor_imudata_pack.imu_time<<endl;
-				//cout<<"imu_time : "<<visensor_imudata_pack.system_time.tv_usec<<endl;
-				counter=0;
+				sensor_msgs::Imu imu_msg;
+				imu_msg.header.frame_id = "/imu";
+				ros::Time imu_time;
+				imu_time.sec=imudata.timestamp;
+				imu_time.nsec=1000*imudata.timestamp;
+				imu_msg.header.stamp = ros::Time(imudata.timestamp);
+				imu_msg.header.seq=0;
+
+				imu_msg.linear_acceleration.x=imudata.ax;
+				imu_msg.linear_acceleration.y=imudata.ay;
+				imu_msg.linear_acceleration.z=imudata.az;
+				imu_msg.angular_velocity.x=3.1415926f*imudata.rx/180.0f;
+				imu_msg.angular_velocity.y=3.1415926f*imudata.ry/180.0f;
+				imu_msg.angular_velocity.z=3.1415926f*imudata.rz/180.0f;
+				imu_msg.orientation.w=imudata.qw;
+				imu_msg.orientation.x=imudata.qx;
+				imu_msg.orientation.y=imudata.qy;
+				imu_msg.orientation.z=imudata.qz;
+
+				pub_imu.publish(imu_msg);
 			}
-
-			/*
-			sensor_msgs::Imu imu_msg;
-			imu_msg.header.frame_id = "/imu";
-			ros::Time imu_time;
-			imu_time.sec=visensor_imudata_pack.system_time.tv_sec;
-			imu_time.nsec=1000*visensor_imudata_pack.system_time.tv_usec;
-			imu_msg.header.stamp = imu_time;
-			imu_msg.header.seq=0;
-
-			imu_msg.linear_acceleration.x=visensor_imudata_pack.ax;
-			imu_msg.linear_acceleration.y=visensor_imudata_pack.ay;
-			imu_msg.linear_acceleration.z=visensor_imudata_pack.az;
-			imu_msg.angular_velocity.x=3.1415926f*visensor_imudata_pack.rx/180.0f;
-			imu_msg.angular_velocity.y=3.1415926f*visensor_imudata_pack.ry/180.0f;
-			imu_msg.angular_velocity.z=3.1415926f*visensor_imudata_pack.rz/180.0f;
-			imu_msg.orientation.w=visensor_imudata_pack.qw;
-			imu_msg.orientation.x=visensor_imudata_pack.qx;
-			imu_msg.orientation.y=visensor_imudata_pack.qy;
-			imu_msg.orientation.z=visensor_imudata_pack.qz;
-
-			pub_imu.publish(imu_msg);
-			*/
+			
 
 		}
 		usleep(10);
@@ -149,8 +145,8 @@ int main(int argc, char **argv)
 	}
 	float hardware_fps=visensor_get_hardware_fps();
 	/************************** Start IMU **************************/
-	int fd=visensor_Start_IMU();
-	if(fd<0)
+	imufd=visensor_Start_IMU();
+	if(imufd<0)
 	{
 		printf("open_port error...\r\n");
 		return 0;
