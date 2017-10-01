@@ -21,6 +21,7 @@
 
 #include "loitorimu.h"
 #include "loitorusb.h"
+#include "loitorcam.h"
 
 
 #define LOG			printf
@@ -72,8 +73,8 @@ bool right_fresh=false;
 bool allow_settings_change=true;
 
 /****************************************************/
-int data_mode;
-int modes_settings[13][4];
+//-- bz removed int data_mode;
+//-- bz removed int modes_settings[13][4];
 int EG_mode;
 int man_exp;
 int man_gain;
@@ -152,9 +153,11 @@ bool visensor_is_rightcam_open()
         return false;
     return true;
 }
+
+/*-- bz removed
 void visensor_load_settings(const char* settings_file)
 {
-    /******************************* Load Settings File ***************************************/
+    //******************************* Load Settings File ***************************************
 
     LOG("\r\n**********************************************\r\n");
     LOG("Loading Settings File...\r\n");
@@ -392,7 +395,7 @@ void visensor_load_settings(const char* settings_file)
     current_HB=modes_settings[data_mode-1][1];
     visensor_cam_selection=modes_settings[data_mode-1][0];
 
-    /****************************************************************************/
+    //****************************************************************************
 
 
     if(visensor_cam_selection==0)gSelectCam = 3;
@@ -402,6 +405,7 @@ void visensor_load_settings(const char* settings_file)
     //Add: AGC/AEC Skip frames
     agc_aec_skip_frame = (int)(visensor_get_hardware_fps()/10);
 }
+*/
 
 // setters
 void visensor_set_auto_EG(int E_AG)
@@ -524,6 +528,7 @@ void visensor_set_imu_portname(char* input_name)
     }
     imu_port_name=input_name;
 }
+/*-- bz removed
 void visensor_set_current_mode(int _mode)
 {
     if(!allow_settings_change||_mode>13||_mode<=0)
@@ -539,6 +544,7 @@ void visensor_set_current_mode(int _mode)
     current_HB=modes_settings[data_mode-1][1];
     visensor_cam_selection=modes_settings[data_mode-1][0];
 }
+*/
 // getters
 int visensor_get_EG_mode()
 {
@@ -596,7 +602,7 @@ const char* visensor_get_imu_portname()
 {
     return imu_port_name.c_str();
 }
-
+/*-- bz removed
 void visensor_save_current_settings()
 {
     // 保存设置参数到原配置文件
@@ -645,7 +651,7 @@ void visensor_save_current_settings()
 
     f.close();
 }
-
+*/
 
 
 /*****************************************************************************/
@@ -1020,9 +1026,105 @@ int visensor_get_right_latest_img(unsigned char* img, double* timestamp, visenso
 }
 
 
-int visensor_Start_Cameras()
+//-- bz removed: int visensor_Start_Cameras()
+int visensor_Start_Cameras( 
+	enum CameraMode _cmode, 
+	enum ExposureGainMode _EG_mode,
+	int _man_exp, int _man_gain,
+	int _auto_EG_top, int _auto_EG_bottom, int _auto_EG_des,
+	int _auto_E_man_G_Etop, int _auto_E_man_G_Ebottom, int _auto_E_man_G,
+	const char* _imu_port_name, int _VI_FIFO_matcher,
+	double _imu_acc_bias_X, double _imu_acc_bias_Y, double _imu_acc_bias_Z )
 {
-    allow_settings_change=false;
+	switch( _cmode )
+	{
+		case CAMERAMODE_HIGHSPEED_LEFT_VGA:
+		case CAMERAMODE_HIGHSPEED_RIGHT_VGA:
+		case CAMERAMODE_HIGHSPEED_LEFT_WVGA:
+		case CAMERAMODE_HIGHSPEED_RIGHT_WVGA:
+		case CAMERAMODE_HIGHSPEED_STEREO_VGA:
+		case CAMERAMODE_HIGHSPEED_STEREO_WVGA:{ current_FPS=54; break; }
+		case CAMERAMODE_NORMAL_LEFT_VGA:
+		case CAMERAMODE_NORMAL_RIGHT_VGA:
+		case CAMERAMODE_NORMAL_LEFT_WVGA:
+		case CAMERAMODE_NORMAL_RIGHT_WVGA:
+		case CAMERAMODE_NORMAL_STEREO_VGA:
+		case CAMERAMODE_NORMAL_STEREO_WVGA:{ current_FPS=54; break; }
+	}
+
+	switch( _cmode )
+	{
+		case CAMERAMODE_HIGHSPEED_LEFT_VGA:
+		case CAMERAMODE_HIGHSPEED_LEFT_WVGA:
+		case CAMERAMODE_NORMAL_LEFT_VGA:
+		case CAMERAMODE_NORMAL_LEFT_WVGA:{ visensor_cam_selection=2; break; }
+		
+		case CAMERAMODE_HIGHSPEED_RIGHT_VGA:		
+		case CAMERAMODE_HIGHSPEED_RIGHT_WVGA:
+		case CAMERAMODE_NORMAL_RIGHT_VGA:
+		case CAMERAMODE_NORMAL_RIGHT_WVGA:{ visensor_cam_selection=1; break; }
+
+		case CAMERAMODE_HIGHSPEED_STEREO_VGA:
+		case CAMERAMODE_HIGHSPEED_STEREO_WVGA:
+		case CAMERAMODE_NORMAL_STEREO_VGA:
+		case CAMERAMODE_NORMAL_STEREO_WVGA:{ visensor_cam_selection=0; break; }
+	}
+
+	switch( _cmode )
+	{
+		case CAMERAMODE_HIGHSPEED_LEFT_VGA:
+		case CAMERAMODE_HIGHSPEED_RIGHT_VGA:
+		case CAMERAMODE_HIGHSPEED_STEREO_VGA:
+		case CAMERAMODE_NORMAL_LEFT_VGA:
+		case CAMERAMODE_NORMAL_RIGHT_VGA:
+		case CAMERAMODE_NORMAL_STEREO_VGA:{ visensor_resolution_status=false; break; }
+		
+		case CAMERAMODE_HIGHSPEED_LEFT_WVGA:
+		case CAMERAMODE_HIGHSPEED_RIGHT_WVGA:
+		case CAMERAMODE_HIGHSPEED_STEREO_WVGA:
+		case CAMERAMODE_NORMAL_LEFT_WVGA:
+		case CAMERAMODE_NORMAL_RIGHT_WVGA:
+		case CAMERAMODE_NORMAL_STEREO_WVGA:{ visensor_resolution_status=true; break; }
+	}
+
+	switch( _cmode )
+	{
+		case CAMERAMODE_HIGHSPEED_LEFT_VGA:		{ current_HB=150; break; }
+		case CAMERAMODE_HIGHSPEED_RIGHT_VGA:	{ current_HB=150; break; }
+		case CAMERAMODE_HIGHSPEED_LEFT_WVGA:	{ current_HB=150; break; }
+		case CAMERAMODE_HIGHSPEED_RIGHT_WVGA:	{ current_HB=150; break; }
+		case CAMERAMODE_HIGHSPEED_STEREO_VGA:	{ current_HB=250; break; }
+		case CAMERAMODE_HIGHSPEED_STEREO_WVGA:	{ current_HB=270; break; }
+		case CAMERAMODE_NORMAL_LEFT_VGA:		{ current_HB=150; break; }
+		case CAMERAMODE_NORMAL_RIGHT_VGA:		{ current_HB=150; break; }
+		case CAMERAMODE_NORMAL_LEFT_WVGA:		{ current_HB=150; break; }
+		case CAMERAMODE_NORMAL_RIGHT_WVGA:		{ current_HB=150; break; }
+		case CAMERAMODE_NORMAL_STEREO_VGA:		{ current_HB=274; break; }
+		case CAMERAMODE_NORMAL_STEREO_WVGA:		{ current_HB=162; break; }	
+	}
+
+	gFPS=current_FPS;	
+	
+	EG_mode=_EG_mode;
+	man_exp=_man_exp; man_gain=_man_gain;
+	auto_EG_top=_auto_EG_top; auto_EG_bottom=_auto_EG_bottom; auto_EG_des=_auto_EG_des;
+	auto_E_man_G_Etop=_auto_E_man_G_Etop; auto_EG_bottom=_auto_EG_bottom; auto_EG_des=_auto_EG_des;
+	imu_port_name=_imu_port_name, VI_FIFO_matcher=_VI_FIFO_matcher;
+	imu_acc_bias_X=_imu_acc_bias_X, imu_acc_bias_Y=_imu_acc_bias_Y, imu_acc_bias_Z=_imu_acc_bias_Z;
+
+	if(visensor_cam_selection==0)gSelectCam = 3;
+    else if(visensor_cam_selection==2)gSelectCam = 1;
+    else if(visensor_cam_selection==1)gSelectCam = 2;
+
+    //Add: AGC/AEC Skip frames
+    agc_aec_skip_frame = (int)(visensor_get_hardware_fps()/10);
+
+
+	
+	allow_settings_change=false;
+
+
+
 
     shut_down_tag=false;
 

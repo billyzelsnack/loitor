@@ -81,7 +81,7 @@ int main(int argc, char* argv[])
 {
 
     /************************ Start Cameras ************************/
-    visensor_load_settings("../Loitor_VISensor_Setups.txt");
+    //-- bz removed: visensor_load_settings("../Loitor_VISensor_Setups.txt");
     /*
     // 手动设置相机参数
     visensor_set_current_mode(5);
@@ -95,8 +95,16 @@ int main(int argc, char* argv[])
     visensor_save_current_settings();
     */
 
-    int r = visensor_Start_Cameras();
-    if(r<0)
+    //-- bz removed: int r = visensor_Start_Cameras();
+	int r = visensor_Start_Cameras(
+		CAMERAMODE_NORMAL_STEREO_WVGA,
+		EGMODE_AUTOMATIC_AUTOMATIC,
+		50, 200,
+		300, 5, 58,
+		300, 5, 200,
+		"/dev/ttyUSB0", 5,
+		52.0, 32.0, -243.0 );	
+	if(r<0)
     {
         printf("Opening cameras failed...\r\n");
         return r;

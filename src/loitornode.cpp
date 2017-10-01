@@ -19,57 +19,6 @@
 #include "loitorimu.h"
 
 
-
-
-
-
-/*
-#
-Mode
-12
-#
-HighSpeed Mode
-m1,left,150,VGA,54
-m2,right,150,VGA,54
-m3,left,150,WVGA,54
-m4,right,150,WVGA,54
-m5,stereo,250,VGA,54
-m6,stereo,270,WVGA,54
-#
-Normal Mode
-m7,left,150,VGA,54
-m8,right,150,VGA,54
-m9,left,150,WVGA,54
-m10,right,150,WVGA,54
-m11,stereo,274,VGA,27
-m12,stereo,162,WVGA,27
-#
-m13,Manual Mode
-0
-194
-VGA
-54
-#
-EG_mode
-4
-manual,50,200
-auto,300,5,58
-autoexp_manualgain,300,5,58,200
-/dev/ttyUSB0,5
-#
-IMU-acc-bias
-Gx,52.000000
-Gy,32.00001
-Gz,-243.000000
-#
-*/
-
-
-
-
-
-
-
 #include <sstream>
 
 
@@ -160,7 +109,7 @@ int main(int argc, char **argv)
 	
 		
 	//-- package relative path. seems pretty hacky.	
-	visensor_load_settings("../../../src/loitor-ros/Loitor_VISensor_Setups.txt");
+	//visensor_load_settings("../../../src/loitor-ros/Loitor_VISensor_Setups.txt");
 
 	// 手动设置相机参数
 	//set_current_mode(5);
@@ -173,7 +122,15 @@ int main(int argc, char **argv)
 	// 保存相机参数到原配置文件
 	//save_current_settings();
 	
-	int r = visensor_Start_Cameras();
+
+	int r = visensor_Start_Cameras(
+		CAMERAMODE_NORMAL_STEREO_WVGA,
+		EGMODE_AUTOMATIC_AUTOMATIC,
+		50, 200,
+		300, 5, 58,
+		300, 5, 200,
+		"/dev/ttyUSB0", 5,
+		52.0, 32.0, -243.0 );
 	if(r<0)
 	{
 		printf("Opening cameras failed...\r\n");

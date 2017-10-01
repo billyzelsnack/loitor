@@ -3,6 +3,44 @@
 
 #ifndef LOITORUSBCAM_H
 #define LOITORUSBCAM_H
+
+
+
+
+enum CameraMode
+{
+	CAMERAMODE_HIGHSPEED_LEFT_VGA,
+	CAMERAMODE_HIGHSPEED_RIGHT_VGA,
+	CAMERAMODE_HIGHSPEED_LEFT_WVGA,
+	CAMERAMODE_HIGHSPEED_RIGHT_WVGA,
+	CAMERAMODE_HIGHSPEED_STEREO_VGA,
+	CAMERAMODE_HIGHSPEED_STEREO_WVGA,
+	CAMERAMODE_NORMAL_LEFT_VGA,
+	CAMERAMODE_NORMAL_RIGHT_VGA,
+	CAMERAMODE_NORMAL_LEFT_WVGA,
+	CAMERAMODE_NORMAL_RIGHT_WVGA,
+	CAMERAMODE_NORMAL_STEREO_VGA,
+	CAMERAMODE_NORMAL_STEREO_WVGA,
+};
+
+enum ExposureGainMode
+{
+	EGMODE_MANUAL_MANUAL=0,
+	EGMODE_MANUAL_AUTOMATIC,
+	EGMODE_AUTOMATIC_MANUAL,
+	EGMODE_AUTOMATIC_AUTOMATIC,
+};
+
+int visensor_Start_Cameras( 
+	enum CameraMode _cmode, 
+	enum ExposureGainMode _egmode,
+	int _man_exp, int _man_gain,
+	int _auto_EG_top, int _auto_EG_bottom, int _auto_EG_des,
+	int _auto_E_man_G_Etop, int _auto_E_man_G_Ebottom, int _auto_E_man_G,
+	const char* _imu_port_name, int _VI_FIFO_matcher,
+	double _imu_acc_bias_X, double _imu_acc_bias_Y, double _imu_acc_bias_Z );
+
+
 #define IMU_FRAME_LEN 32
 #define IMG_WIDTH_VGA 	640
 #define IMG_HEIGHT_VGA 	480
@@ -51,7 +89,7 @@ void visensor_load_settings(const char* settings_file);
 
 int visensor_img_width();
 int visensor_img_height();
-int visensor_Start_Cameras();
+//-- bz removed: int visensor_Start_Cameras();
 void visensor_Close_Cameras();
 
 bool visensor_is_leftcam_open();
