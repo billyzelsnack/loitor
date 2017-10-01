@@ -1049,7 +1049,7 @@ int visensor_Start_Cameras(
 		case CAMERAMODE_NORMAL_LEFT_WVGA:
 		case CAMERAMODE_NORMAL_RIGHT_WVGA:
 		case CAMERAMODE_NORMAL_STEREO_VGA:
-		case CAMERAMODE_NORMAL_STEREO_WVGA:{ current_FPS=54; break; }
+		case CAMERAMODE_NORMAL_STEREO_WVGA:{ current_FPS=27; break; }
 	}
 
 	switch( _cmode )
