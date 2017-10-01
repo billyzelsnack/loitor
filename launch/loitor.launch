@@ -25,7 +25,7 @@
         Set minimum on automatic exposure mode (Limit of 0-255)
     -->
 
-    <node name="loitor" pkg="loitor" type="loitor" cwd="node" output="screen">
+    <node name="loitor_node1" pkg="loitor_ros" type="loitor_node" cwd="node" output="screen">
 <!--
         <param name="E_AG"      type="int" value="$(arg eg_mode)" />
         <param name="man_exp"   type="int" value="$(arg man_exp)" />

@@ -18,6 +18,58 @@
 #include "loitorcam.h"
 #include "loitorimu.h"
 
+
+
+
+
+
+/*
+#
+Mode
+12
+#
+HighSpeed Mode
+m1,left,150,VGA,54
+m2,right,150,VGA,54
+m3,left,150,WVGA,54
+m4,right,150,WVGA,54
+m5,stereo,250,VGA,54
+m6,stereo,270,WVGA,54
+#
+Normal Mode
+m7,left,150,VGA,54
+m8,right,150,VGA,54
+m9,left,150,WVGA,54
+m10,right,150,WVGA,54
+m11,stereo,274,VGA,27
+m12,stereo,162,WVGA,27
+#
+m13,Manual Mode
+0
+194
+VGA
+54
+#
+EG_mode
+4
+manual,50,200
+auto,300,5,58
+autoexp_manualgain,300,5,58,200
+/dev/ttyUSB0,5
+#
+IMU-acc-bias
+Gx,52.000000
+Gy,32.00001
+Gz,-243.000000
+#
+*/
+
+
+
+
+
+
+
 #include <sstream>
 
 
@@ -102,13 +154,13 @@ int main(int argc, char **argv)
 	//visensor_load_settings(argv[1]);
 	//else 
 
-	ros::init(argc, argv, "loitor");
+	ros::init(argc, argv, "loitor_node");
 	
 	ros::NodeHandle nh;
 	
 		
 	//-- package relative path. seems pretty hacky.	
-	visensor_load_settings("../../../src/loitor/Loitor_VISensor_Setups.txt");
+	visensor_load_settings("../../../src/loitor-ros/Loitor_VISensor_Setups.txt");
 
 	// 手动设置相机参数
 	//set_current_mode(5);

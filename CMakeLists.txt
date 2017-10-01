@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(loitor)
+project(loitor_ros)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -35,6 +35,6 @@ add_library(loitorimu src/loitorimu.cpp)
 add_executable(camtest src/camtest.cpp)
 target_link_libraries(camtest loitorusbcam loitorimu usb-1.0 ${OpenCV_LIBS})
 
-add_executable(loitor src/loitornode.cpp) 
-target_link_libraries(loitor loitorusbcam loitorimu ${catkin_LIBRARIES} ${OpenCV_LIBS} usb-1.0)
+add_executable(loitor_node src/loitornode.cpp) 
+target_link_libraries(loitor_node loitorusbcam loitorimu ${catkin_LIBRARIES} ${OpenCV_LIBS} usb-1.0)
 
