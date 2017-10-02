@@ -1,11 +1,13 @@
 ## loitor
 A ROS version of http://github.com/loitor-vis/vi_sensor_sdk2
 
-Please don't assume that this actually works at all at this point.
+Please don't assume that this actually works at all at this point. I use this repo mostly to transfer work between my desktop and laptop.
 
 ### Enhancements
 
-	TODO: Ability to update exposure/gain on the fly
+    No more settings file
+    Dynamic parameters for exposure/gain
+    TODO: Make all the exposure/gain parameters work
     TODO: Cleanup shutdown
     TODO: Investigate "Lost an IMU frame..."
 
@@ -14,6 +16,8 @@ Please don't assume that this actually works at all at this point.
     /camera/left/image_raw
 	/camera/right/image_raw
 	/imu
+    /loitor_node/parameter_descriptions
+    /loitor_node/parameter_updates
 
 ### Assumptions:
 
@@ -30,7 +34,7 @@ Please don't assume that this actually works at all at this point.
     catkin_make  
     source devel/setup.bash  
     cd src  
-    git clone https://github.com/billyzelsnack/loitor.git  
+    git clone https://github.com/billyzelsnack/loitor-ros.git  
     cd ..  
     catkin_make  
 
@@ -45,8 +49,14 @@ Find your the terminal you build in or open a new one.
 
     cd ~/loitor_ws
     source devel/setup.bash
-    roscd loitor
-    roslaunch launch/loitor.launch
+    roscd loitor_ros
+    rosrun loitor_ros loitor_node
+
+To dynamically change parameters open a new terminal.
+
+    /opt/ros/kinetic/setup.bash
+    rosrun rqt_reconfigure rqt_reconfigure
+    
 
 
 

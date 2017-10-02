@@ -4,6 +4,9 @@
 #include <cv_bridge/cv_bridge.h>
 #include "sensor_msgs/Imu.h"
 
+#include <dynamic_reconfigure/server.h>
+#include <loitor_ros/LoitorConfig.h>
+
 #include <cv.h>
 #include <highgui.h>
 #include "cxcore.hpp"
@@ -27,6 +30,8 @@ using namespace cv;
 
 
 ros::Publisher pub_imu;
+
+static loitor_ros::LoitorConfig sConfig;
 
 
 int imufd=-1;
@@ -95,6 +100,35 @@ void* imu_data_stream(void *)
 	pthread_exit(NULL);
 }
 
+//int visensor_reset();
+void visensor_swap();
+
+ 
+void callback(loitor_ros::LoitorConfig& config, uint32_t level) 
+{
+	sConfig=config;
+
+	ROS_INFO( "EG_MODE %d", config.EG_MODE );
+	visensor_set_auto_EG( config.EG_MODE );
+
+	ROS_INFO( "man_exp %d", config.man_exp );
+	visensor_set_exposure( config.man_exp);
+
+	ROS_INFO( "man_gain %d", config.man_gain );
+	visensor_set_gain( config.man_gain);
+
+	//visensor_swap();
+	//gSwap=!gSwap;
+
+
+	/*
+	ROS_INFO("Reconfigure Request: %d %f %s %s %d", 
+			  config.int_param, config.double_param, 
+			  config.str_param.c_str(), 
+			  config.bool_param?"True":"False", 
+			  config.size);
+			  */
+}
 
 int main(int argc, char **argv)
 { 
@@ -104,8 +138,19 @@ int main(int argc, char **argv)
 	//else 
 
 	ros::init(argc, argv, "loitor_node");
+
+	dynamic_reconfigure::Server<loitor_ros::LoitorConfig> server;
+	dynamic_reconfigure::Server<loitor_ros::LoitorConfig>::CallbackType f;
+
+	f = boost::bind(&callback, _1, _2);
+	server.setCallback(f);
+  
 	
 	ros::NodeHandle nh;
+
+	
+	ROS_INFO( "og man_exp %d", sConfig.man_exp );
+
 	
 		
 	//-- package relative path. seems pretty hacky.	
@@ -125,8 +170,8 @@ int main(int argc, char **argv)
 
 	int r = visensor_Start_Cameras(
 		CAMERAMODE_NORMAL_STEREO_WVGA,
-		EGMODE_AUTOMATIC_AUTOMATIC,
-		50, 200,
+		EGMODE_MANUAL_MANUAL,
+		sConfig.man_exp, sConfig.man_gain,
 		300, 5, 58,
 		300, 5, 200,
 		"/dev/ttyUSB0", 5,

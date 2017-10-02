@@ -410,29 +410,35 @@ void visensor_load_settings(const char* settings_file)
 // setters
 void visensor_set_auto_EG(int E_AG)
 {
+    /*-- BZ removed:
     if(!allow_settings_change)
     {
         cout<<"settings FIXED !"<<endl;
         return;
     }
+    */
     EG_mode=E_AG;
 }
 void visensor_set_exposure(int _man_exp)
 {
+    /*-- BZ removed:
     if(!allow_settings_change)
     {
         cout<<"settings FIXED !"<<endl;
         return;
     }
+    */
     man_exp=_man_exp;
 }
 void visensor_set_gain(int _man_gain)
 {
+    /*-- BZ removed:
     if(!allow_settings_change)
     {
         cout<<"settings FIXED !"<<endl;
         return;
     }
+    */    
     man_gain=_man_gain;
     auto_E_man_G=_man_gain;
 }
@@ -789,18 +795,8 @@ static void set_camreg_default(int cam_no)
     camera_i2c_write(cam_no,0xAF,0x0003);
 }
 
-void *cam1_capture(void*)
+void cam1_write_egmode()
 {
-    set_camreg_default(1);
-    int r,transferred = 0;
-    camera_i2c_write(1,0x07,0x0188);//Normal
-    camera_i2c_write(1,0x06,0x002D);//VB
-    // cmos设置
-    camera_i2c_write(1,0x05,current_HB);//HB
-    if(visensor_resolution_status==0)
-        camera_i2c_write(1,0x04,IMG_WIDTH_VGA);//HW
-    else
-        camera_i2c_write(1,0x04,IMG_WIDTH_WVGA);//HW
     switch (EG_mode)
     {
     case 0:
@@ -838,6 +834,22 @@ void *cam1_capture(void*)
     default:
         break;
     }
+}
+
+void *cam1_capture(void*)
+{
+    set_camreg_default(1);
+    int r,transferred = 0;
+    camera_i2c_write(1,0x07,0x0188);//Normal
+    camera_i2c_write(1,0x06,0x002D);//VB
+    // cmos设置
+    camera_i2c_write(1,0x05,current_HB);//HB
+    if(visensor_resolution_status==0)
+        camera_i2c_write(1,0x04,IMG_WIDTH_VGA);//HW
+    else
+        camera_i2c_write(1,0x04,IMG_WIDTH_WVGA);//HW
+
+    cam1_write_egmode();
 
     control_camera(1,fps_control());
     usleep(100);
@@ -863,6 +875,7 @@ void *cam1_capture(void*)
             im_buf_size = (visensor_resolution_status==1?IMG_BUF_SIZE_WVGA:IMG_BUF_SIZE_VGA);
             r = cyusb_bulk_transfer(pcam1_handle, 0x82, im1[gFrameCam1].data, im_buf_size, &transferred, 200);
             gettimeofday(&cap_systime,NULL);
+            cam1_write_egmode();
             im1[gFrameCam1].timestamp = cap_systime.tv_sec+0.000001*cap_systime.tv_usec-time_offset;
             if(r)printf("cam1 bulk transfer returned: %d\n",r);
             check_img(1,im1[gFrameCam1].data,&im1[gFrameCam1].pass);
@@ -877,6 +890,47 @@ void *cam1_capture(void*)
     pthread_exit(NULL);
 }
 
+void cam2_write_egmode()
+{
+    switch (EG_mode) {
+        case 0:
+            camera_i2c_write(2,0xAF,0x00);//AEC
+            camera_i2c_write(2,0x0B,man_exp);//Exposure Time
+            camera_i2c_write(2,0x35,man_gain);//Gain
+            break;
+        case 1:
+            camera_i2c_write(2,0xAF,0x03);//AEC
+            camera_i2c_write(2,0xA5,auto_EG_des);//AEC
+            camera_i2c_write(2,0xA6,0x01);//AEC
+            camera_i2c_write(2,0xA8,0x00);//AEC
+            camera_i2c_write(2,0xAC,auto_EG_bottom);//AEC
+            camera_i2c_write(2,0xAD,auto_EG_top);//AEC
+            camera_i2c_write(2,0xAE,2);//AEC
+            break;
+        case 2:
+            camera_i2c_write(2,0xAF,0x01);//AEC
+            camera_i2c_write(2,0xA5,auto_EG_des);//AEC
+            camera_i2c_write(2,0xA6,0x01);//AEC
+            camera_i2c_write(2,0xA8,0x00);//AEC
+            camera_i2c_write(2,0xAC,auto_E_man_G_Ebottom);//AEC
+            camera_i2c_write(2,0xAD,auto_E_man_G_Etop);//AEC
+            camera_i2c_write(2,0xAE,2);//AEC
+            camera_i2c_write(2,0x35,auto_E_man_G);//Gain
+            break;
+        case 3:
+            break;
+        case 4:
+            camera_i2c_write(2,0xA6,agc_aec_skip_frame);
+            camera_i2c_write(2,0xA8,2);
+            camera_i2c_write(2,0xA9,agc_aec_skip_frame);
+            camera_i2c_write(2,0xAA,2);
+            break;
+        default:
+            break;
+        }
+    
+}
+
 void *cam2_capture(void*)
 {
     set_camreg_default(2);
@@ -887,42 +941,8 @@ void *cam2_capture(void*)
     camera_i2c_write(2,0x05,current_HB);//HB
     if(!visensor_resolution_status)camera_i2c_write(2,0x04,IMG_WIDTH_VGA);//HW
     else camera_i2c_write(2,0x04,IMG_WIDTH_WVGA);//HW
-    switch (EG_mode) {
-    case 0:
-        camera_i2c_write(2,0xAF,0x00);//AEC
-        camera_i2c_write(2,0x0B,man_exp);//Exposure Time
-        camera_i2c_write(2,0x35,man_gain);//Gain
-        break;
-    case 1:
-        camera_i2c_write(2,0xAF,0x03);//AEC
-        camera_i2c_write(2,0xA5,auto_EG_des);//AEC
-        camera_i2c_write(2,0xA6,0x01);//AEC
-        camera_i2c_write(2,0xA8,0x00);//AEC
-        camera_i2c_write(2,0xAC,auto_EG_bottom);//AEC
-        camera_i2c_write(2,0xAD,auto_EG_top);//AEC
-        camera_i2c_write(2,0xAE,2);//AEC
-        break;
-    case 2:
-        camera_i2c_write(2,0xAF,0x01);//AEC
-        camera_i2c_write(2,0xA5,auto_EG_des);//AEC
-        camera_i2c_write(2,0xA6,0x01);//AEC
-        camera_i2c_write(2,0xA8,0x00);//AEC
-        camera_i2c_write(2,0xAC,auto_E_man_G_Ebottom);//AEC
-        camera_i2c_write(2,0xAD,auto_E_man_G_Etop);//AEC
-        camera_i2c_write(2,0xAE,2);//AEC
-        camera_i2c_write(2,0x35,auto_E_man_G);//Gain
-        break;
-    case 3:
-        break;
-    case 4:
-        camera_i2c_write(2,0xA6,agc_aec_skip_frame);
-        camera_i2c_write(2,0xA8,2);
-        camera_i2c_write(2,0xA9,agc_aec_skip_frame);
-        camera_i2c_write(2,0xAA,2);
-        break;
-    default:
-        break;
-    }
+
+    cam2_write_egmode();
 
     control_camera(2,fps_control());
     usleep(100);
@@ -940,6 +960,7 @@ void *cam2_capture(void*)
             im_buf_size = (visensor_resolution_status==1?IMG_BUF_SIZE_WVGA:IMG_BUF_SIZE_VGA);
             r = cyusb_bulk_transfer(pcam2_handle, 0x82, im2[gFrameCam2].data, im_buf_size, &transferred, 200);
             gettimeofday(&cap_systime,NULL);
+            cam2_write_egmode();
             im2[gFrameCam2].timestamp = cap_systime.tv_sec+0.000001*cap_systime.tv_usec-time_offset;
             if(r)printf("cam2 bulk transfer returned: %d\n",r);
             check_img(2,im2[gFrameCam2].data,&im2[gFrameCam2].pass);
@@ -1108,7 +1129,7 @@ int visensor_Start_Cameras(
 	EG_mode=_EG_mode;
 	man_exp=_man_exp; man_gain=_man_gain;
 	auto_EG_top=_auto_EG_top; auto_EG_bottom=_auto_EG_bottom; auto_EG_des=_auto_EG_des;
-	auto_E_man_G_Etop=_auto_E_man_G_Etop; auto_EG_bottom=_auto_EG_bottom; auto_EG_des=_auto_EG_des;
+	auto_E_man_G_Etop=_auto_E_man_G_Etop; auto_E_man_G_Ebottom=_auto_E_man_G_Ebottom; auto_E_man_G=_auto_E_man_G;
 	imu_port_name=_imu_port_name, VI_FIFO_matcher=_VI_FIFO_matcher;
 	imu_acc_bias_X=_imu_acc_bias_X, imu_acc_bias_Y=_imu_acc_bias_Y, imu_acc_bias_Z=_imu_acc_bias_Z;
 
