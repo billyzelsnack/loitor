@@ -1,11 +1,14 @@
 #include "ros/ros.h" 
 #include "std_msgs/String.h"
+#include <std_msgs/UInt8.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include "sensor_msgs/Imu.h"
 
 #include <dynamic_reconfigure/server.h>
 #include <loitor_ros/LoitorConfig.h>
+#include <loitor_ros/LoitorCam.h>
+#include <loitor_ros/LoitorIMU.h>
 
 #include <cv.h>
 #include <highgui.h>
@@ -31,7 +34,14 @@ using namespace cv;
 
 ros::Publisher pub_imu;
 
+ros::Publisher pub_msgcam;
+ros::Publisher pub_msgimu;
+
+ros::Subscriber sub_msgcam;
+ros::Subscriber sub_msgimu;
+
 static loitor_ros::LoitorConfig sConfig;
+
 
 
 int imufd=-1;
@@ -130,6 +140,33 @@ void callback(loitor_ros::LoitorConfig& config, uint32_t level)
 			  */
 }
 
+dynamic_reconfigure::Server<loitor_ros::LoitorConfig>* gServer=NULL;
+
+boost::recursive_mutex dynamic_reconfigure_mutex_;
+
+void updateConfig()
+{
+	boost::recursive_mutex::scoped_lock dyn_reconf_lock(dynamic_reconfigure_mutex_);	
+	gServer->updateConfig(sConfig);
+	dyn_reconf_lock.unlock();
+}
+
+void callback_msgcam(const loitor_ros::LoitorCam::ConstPtr& msg)
+{
+	ROS_INFO("set_exposure [%d]", msg->man_exp );
+	visensor_set_exposure( msg->man_exp );
+	sConfig.man_exp=msg->man_exp;
+	updateConfig();
+}
+
+void callback_msgimu(const loitor_ros::LoitorIMU::ConstPtr& msg)
+{
+	//ROS_INFO("set_gain [%d]", msg->data );
+	//visensor_set_gain( msg->data );
+	//sConfig.man_gain=msg->data;
+	//updateConfig();
+}
+
 int main(int argc, char **argv)
 { 
 	/************************ Start Cameras ************************/
@@ -139,8 +176,9 @@ int main(int argc, char **argv)
 
 	ros::init(argc, argv, "loitor_node");
 
-	dynamic_reconfigure::Server<loitor_ros::LoitorConfig> server;
+	dynamic_reconfigure::Server<loitor_ros::LoitorConfig> server(dynamic_reconfigure_mutex_);
 	dynamic_reconfigure::Server<loitor_ros::LoitorConfig>::CallbackType f;
+	gServer=&server;
 
 	f = boost::bind(&callback, _1, _2);
 	server.setCallback(f);
@@ -148,10 +186,9 @@ int main(int argc, char **argv)
 	
 	ros::NodeHandle nh;
 
-	
-	ROS_INFO( "og man_exp %d", sConfig.man_exp );
 
 	
+
 		
 	//-- package relative path. seems pretty hacky.	
 	//visensor_load_settings("../../../src/loitor-ros/Loitor_VISensor_Setups.txt");
@@ -215,17 +252,22 @@ int main(int argc, char **argv)
 	if(temp = pthread_create(&imu_data_thread, NULL, imu_data_stream, NULL))
 	printf("Failed to create thread imu_data_stream\r\n");
 	
+	pub_msgcam = nh.advertise<loitor_ros::LoitorCam>("/loitor_node/get_cam", 1 );
+	sub_msgcam = nh.subscribe("/loitor_node/set_cam", 1, callback_msgcam );
 
+	pub_msgimu = nh.advertise<loitor_ros::LoitorIMU>("/loitor_node/get_imu", 1 );
+	sub_msgimu = nh.subscribe("/loitor_node/set_imu", 1, callback_msgimu );
+	
 	// imu publisher
-	pub_imu = nh.advertise<sensor_msgs::Imu>("/imu", 200);
+	pub_imu = nh.advertise<sensor_msgs::Imu>("/loitor_node/imu", 200);
  
 	// publish 到这两个 topic
 	image_transport::ImageTransport it(nh);
-	image_transport::Publisher pub = it.advertise("/camera/left/image_raw", 1);
+	image_transport::Publisher pub = it.advertise("/loitor_node/left/image_raw", 1);
 	sensor_msgs::ImagePtr msg;
 
 	image_transport::ImageTransport it1(nh);
-	image_transport::Publisher pub1 = it1.advertise("/camera/right/image_raw", 1);
+	image_transport::Publisher pub1 = it1.advertise("/loitor_node/right/image_raw", 1);
 	sensor_msgs::ImagePtr msg1;
 
 	// 使用camera硬件帧率设置发布频率
@@ -283,6 +325,15 @@ int main(int argc, char **argv)
 			{
 				pub.publish(msg);
 				pub1.publish(msg1);
+				
+				loitor_ros::LoitorCam msgcam;
+				msgcam.man_exp=visensor_get_exposure();
+				msgcam.man_gain=visensor_get_gain();
+				pub_msgcam.publish(msgcam);
+
+				//loitor_ros::LoitorIMU msgimu;
+				//pub_msgimu.publish(msgimu);
+
 				static_ct=0;
 			}
 			

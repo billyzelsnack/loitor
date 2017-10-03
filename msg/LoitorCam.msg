@@ -1,0 +1,9 @@
+uint8 EG_MODE
+uint8 man_exp
+uint8 man_gain
+uint8 auto_EG_top
+uint8 auto_EG_bottom
+uint8 auto_EG_des
+uint8 auto_E_man_G_Etop
+uint8 auto_E_man_G_Ebottom
+uint8 auto_E_man_G
