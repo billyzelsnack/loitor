@@ -7,8 +7,10 @@ Please don't assume that this actually works at all at this point. I use this re
 
     No more settings file
     Dynamic parameters for exposure/gain
-    TODO: Make all the exposure/gain parameters work
-    TODO: Cleanup shutdown
+	LoitorCam and LoitorIMU messages
+    TODO: Make all the parameters work
+    TODO: Too much craziness
+	TODO: Cleanup shutdown
     TODO: Investigate "Lost an IMU frame..."
 
 ### Publications
@@ -18,6 +20,10 @@ Please don't assume that this actually works at all at this point. I use this re
 	/imu
     /loitor_node/parameter_descriptions
     /loitor_node/parameter_updates
+	/loitor_node/get_cam
+	/loitor_node/get_imu
+	/loitor_node/set_cam
+	/loitor_node/set_imu
 
 ### Assumptions:
 
