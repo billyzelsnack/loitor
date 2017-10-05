@@ -235,7 +235,9 @@ int main(int argc, char **argv)
 		img_right.data=new unsigned char[IMG_WIDTH_WVGA*IMG_HEIGHT_WVGA];
 	}
 	float hardware_fps=visensor_get_hardware_fps();
-	/************************** Start IMU **************************/
+	
+	/*
+	//************************** Start IMU **************************
 	imufd=visensor_Start_IMU();
 	if(imufd<0)
 	{
@@ -244,14 +246,15 @@ int main(int argc, char **argv)
 	}
 	printf("open_port success...\r\n");
 	usleep(100000);
-	/************************ ************ ************************/
+	//************************ ************ ************************
 
 	//Create imu_data_stream thread
 	pthread_t imu_data_thread;
 	int temp;
 	if(temp = pthread_create(&imu_data_thread, NULL, imu_data_stream, NULL))
 	printf("Failed to create thread imu_data_stream\r\n");
-	
+	*/
+
 	pub_msgcam = nh.advertise<loitor_ros::LoitorCam>("/loitor_node/get_cam", 1 );
 	sub_msgcam = nh.subscribe("/loitor_node/set_cam", 1, callback_msgcam );
 
@@ -263,11 +266,11 @@ int main(int argc, char **argv)
  
 	// publish 到这两个 topic
 	image_transport::ImageTransport it(nh);
-	image_transport::Publisher pub = it.advertise("/loitor_node/left/image_raw", 1);
+	image_transport::Publisher pub = it.advertise("/camera/left/image_raw", 1);
 	sensor_msgs::ImagePtr msg;
 
 	image_transport::ImageTransport it1(nh);
-	image_transport::Publisher pub1 = it1.advertise("/loitor_node/right/image_raw", 1);
+	image_transport::Publisher pub1 = it1.advertise("/camera/right/image_raw", 1);
 	sensor_msgs::ImagePtr msg1;
 
 	// 使用camera硬件帧率设置发布频率
@@ -406,19 +409,20 @@ int main(int argc, char **argv)
 		
 	}
 
-	/* shut-down viewers */
+	/*
 	visensor_Close_IMU_viewer=true;
 	if(imu_data_thread !=0)
 	{
 		pthread_join(imu_data_thread,NULL);
 	}
+	*/
 
 	cout<<endl<<"shutting-down Cameras"<<endl;
 
 	/* close cameras */
 	visensor_Close_Cameras();
-	/* close IMU */
-	visensor_Close_IMU();
+
+	//visensor_Close_IMU();
 	
 	return 0;
 }

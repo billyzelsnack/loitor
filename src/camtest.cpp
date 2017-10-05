@@ -15,49 +15,13 @@
 
 using namespace std;
 using namespace cv;
-bool close_img_viewer=false;
-bool visensor_Close_IMU_viewer=false;
+//bool close_img_viewer=false;
+//bool visensor_Close_IMU_viewer=false;
 
 // 当前左右图像的时间戳
-timeval left_stamp,right_stamp;
+//timeval left_stamp,right_stamp;
 
-/**
- * @brief opencv_showimg
- * @return
- */
-void *opencv_showimg(void*)
-{
-    Mat img_left(Size(visensor_img_width(),visensor_img_height()),CV_8UC1);
-    double left_timestamp;
-    Mat img_right(Size(visensor_img_width(),visensor_img_height()),CV_8UC1);
-    double right_timestamp;
-    visensor_imudata img_imudata;
-    while(!close_img_viewer)
-    {
-        if(visensor_is_leftcam_open())
-        {
-            if(visensor_is_left_img_new())
-            {
-                visensor_get_left_latest_img(img_left.data,&left_timestamp,&img_imudata);
-                printf("L-Time: %8.6f, IMUTime: %8.6f\n",left_timestamp,img_imudata.timestamp);
-                imshow("left",img_left);
-            }
-        }
-        if(visensor_is_rightcam_open())
-        {
-            if(visensor_is_right_img_new())
-            {
-                visensor_get_right_latest_img(img_right.data,&right_timestamp);
-                printf("R-Time: %8.6f\n",right_timestamp);
-                imshow("right",img_right);
-            }
-        }
-        waitKey(1);
-    }
-    pthread_exit(NULL);
-}
-
-
+/*
 void* show_imuData(void *)
 {
     visensor_imudata imudata;
@@ -76,6 +40,8 @@ void* show_imuData(void *)
     }
     pthread_exit(NULL);
 }
+*/
+
 
 int main(int argc, char* argv[])
 {
@@ -98,8 +64,9 @@ int main(int argc, char* argv[])
     //-- bz removed: int r = visensor_Start_Cameras();
 	int r = visensor_Start_Cameras(
 		CAMERAMODE_NORMAL_STEREO_WVGA,
-		EGMODE_AUTOMATIC_AUTOMATIC,
-		50, 200,
+		EGMODE_MANUAL_MANUAL,
+		//1, 127,
+		200, 200,
 		300, 5, 58,
 		300, 5, 200,
 		"/dev/ttyUSB0", 5,
@@ -108,8 +75,10 @@ int main(int argc, char* argv[])
     {
         printf("Opening cameras failed...\r\n");
         return r;
-    }
-    /************************** Start IMU **************************/
+	}
+	
+	/*
+    //************************** Start IMU **************************
     int fd=visensor_Start_IMU();
     if(fd<0)
     {
@@ -117,44 +86,103 @@ int main(int argc, char* argv[])
         return 0;
     }
     printf("visensor_open_port success...\r\n");
-    /************************ ************ ************************/
+    //************************ ************ ************************
+	*/
 
     usleep(100000);
 
+	/*
     //Create img_show thread
     pthread_t showimg_thread;
     int temp;
     if(temp = pthread_create(&showimg_thread, NULL, opencv_showimg, NULL))
-        printf("Failed to create thread opencv_showimg\r\n");
-    //Create show_imuData thread
+		printf("Failed to create thread opencv_showimg\r\n");
+	*/
+	
+	/*
+	//Create show_imuData thread
     pthread_t showimu_thread;
     if(temp = pthread_create(&showimu_thread, NULL, show_imuData, NULL))
-        printf("Failed to create thread show_imuData\r\n");
+		printf("Failed to create thread show_imuData\r\n");
+	*/
 
+
+	int lframectr=0;
+	int rframectr=0;
+
+    Mat img_left(Size(visensor_img_width(),visensor_img_height()),CV_8UC1);
+    double left_timestamp;
+    Mat img_right(Size(visensor_img_width(),visensor_img_height()),CV_8UC1);
+    double right_timestamp;
+    //visensor_imudata img_imudata;
+    while(waitKey(1)!=27)
+    {
+        if(visensor_is_leftcam_open())
+        {
+            if(visensor_is_left_img_new())
+            {
+				double timestamp=0;
+				visensor_get_left_latest_img(img_left.data,&timestamp);//,&img_imudata);
+				double delta=timestamp-left_timestamp;
+				left_timestamp=timestamp;
+                printf("L-Time %d : %.1f : %8.6f\n",lframectr++,1.0/delta,left_timestamp);//,img_imudata.timestamp);
+                imshow("left",img_left);
+            }
+		}
+		
+        if(visensor_is_rightcam_open())
+        {
+            if(visensor_is_right_img_new())
+            {
+				double timestamp=0;
+                visensor_get_right_latest_img(img_right.data,&timestamp);
+				double delta=timestamp-right_timestamp;
+				right_timestamp=timestamp;
+				printf("R-Time %d : %.1f : %8.6f\n",rframectr++,1.0/delta,right_timestamp);
+                imshow("right",img_right);
+            }
+		}
+		
+        waitKey(1);
+	}
+
+	/*
     while(1)
     {
         // Do - Nothing :)
         //cout<<visensor_get_imu_portname()<<endl;
         //cout<<visensor_get_hardware_fps()<<endl;
         sleep(1);
-    }
+	}
+	*/
 
     /* shut-down viewers */
-    close_img_viewer=true;
-    visensor_Close_IMU_viewer=true;
+    //close_img_viewer=true;
+	
+	/*
+	visensor_Close_IMU_viewer=true;
+	*/
+
+	/*
     if(showimg_thread !=0)
     {
         pthread_join(showimg_thread,NULL);
-    }
+	}
+	*/
+
+	/*
     if(showimu_thread !=0)
     {
         pthread_join(showimu_thread,NULL);
-    }
+	}
+	*/
 
     /* close cameras */
     visensor_Close_Cameras();
-    /* close IMU */
+	
+	/*
     visensor_Close_IMU();
+	*/
 
     return 0;
 }

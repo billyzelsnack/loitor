@@ -38,6 +38,7 @@
 #define IMG_SIZE_WVGA 	(IMG_WIDTH_WVGA*IMG_HEIGHT_WVGA)
 #define IMG_BUF_SIZE_WVGA (IMG_SIZE_WVGA+0x200)
 #define FRAME_CLUST 54
+#define FRAME_CLUST 2
 
 /*CAMERA CONTROL INSTRUCTION MACRO*/
 #define CAPTURE_27			0xA1
@@ -113,7 +114,10 @@ struct img_s
     unsigned char pass;
 };
 
-struct img_s im1[FRAME_CLUST],im2[FRAME_CLUST];
+//struct img_s im1[FRAME_CLUST],im2[FRAME_CLUST];
+
+struct img_s im1,im2;
+
 
 timeval visensor_startTime;
 
@@ -154,328 +158,35 @@ bool visensor_is_rightcam_open()
     return true;
 }
 
-/*-- bz removed
-void visensor_load_settings(const char* settings_file)
-{
-    //******************************* Load Settings File ***************************************
-
-    LOG("\r\n**********************************************\r\n");
-    LOG("Loading Settings File...\r\n");
-
-    visensor_settings_file_name=settings_file;
-
-    ifstream ifs_settings(visensor_settings_file_name.c_str());//,ios::in|ios::binary|ios::ate);
-    if(!ifs_settings )
-    {
-        cerr << "Error opening file: "<<visensor_settings_file_name <<endl;
-        exit(EXIT_FAILURE);
-    }
-    else
-    {
-        cout<<"Successfully opened settings file!"<<endl;
-    }
-
-    long file_size=ifs_settings.tellg();
-
-    //cout<<"filesize:"<<file_size<<endl;
-
-    std::string filename;
-    std::string line_settings;
-    std::string timestamp;
-    std::vector<string> settingsList;
-    int linecount=0;
-    while(std::getline(ifs_settings,line_settings))
-    {
-        linecount++;
-        if(line_settings.at(0)!='#')
-            settingsList.push_back(line_settings);
-    }
-    //cout <<"line get end............"<<endl;
-    for (vector<string>::iterator iter = settingsList.begin(); iter != settingsList.end(); ++iter)
-    {
-        cout << *iter << endl;
-    }
-    ifs_settings.close();
-
-
-    std::string token;
-
-    // convert to File_Settings Object
-    istringstream(settingsList.at(1))>>data_mode;
-    //cout << "data_mode: "<<data_mode<<endl;
-
-    for(int i=3; i<=15; i++)
-    {
-        if(i==9)continue;
-        int visensor_cam_selection=0,_HB=0,res=0,fps=0;
-
-        istringstream iss_line(settingsList.at(i));
-        //The first word, ignore
-        std::getline(iss_line, token, ',');
-
-        //The second word, lrs
-        std::getline(iss_line, token, ',');
-        if(token[0]=='l')visensor_cam_selection=2;
-        else if(token[0]=='r')visensor_cam_selection=1;
-        else if(token[0]=='s')visensor_cam_selection=0;
-
-        //_HB
-        std::getline(iss_line, token, ',');
-        istringstream(token)>>_HB;
-
-        //WVGA or VGA?
-        std::getline(iss_line, token, ',');
-        res=(token[0]=='V'?0:1);
-
-        //FPS
-        std::getline(iss_line, token, ',');
-        istringstream(token)>>fps;
-
-        // fill data
-        if(i<9)// “HighSpeed Pre-Set”
-        {
-            modes_settings[i-3][0]=visensor_cam_selection;
-            modes_settings[i-3][1]=_HB;
-            modes_settings[i-3][2]=res;
-            modes_settings[i-3][3]=fps;
-        }
-        else// “Normal Pre-Set”
-        {
-            modes_settings[i-4][0]=visensor_cam_selection;
-            modes_settings[i-4][1]=_HB;
-            modes_settings[i-4][2]=res;
-            modes_settings[i-4][3]=fps;
-        }
-
-    }
-
-    // Manual Mode
-    {
-        int visensor_cam_selection=0,_HB=0,res=0,fps=0;
-
-        istringstream(settingsList.at(17))>>visensor_cam_selection;
-        istringstream(settingsList.at(18))>>_HB;
-        token = settingsList.at(19);
-        res=(token[0]=='V'?0:1);
-        istringstream(settingsList.at(20))>>fps;
-
-        modes_settings[12][0]=visensor_cam_selection;
-        modes_settings[12][1]=_HB;
-        modes_settings[12][2]=res;
-        modes_settings[12][3]=fps;
-    }
-
-    // EXP&GAIN
-    istringstream(settingsList.at(22))>>EG_mode;
-
-    // manual E&G
-    {
-        int _exp=0,_gain=0;
-
-        istringstream iss_line(settingsList.at(23));
-        //The first word, ignore
-        std::getline(iss_line, token, ',');
-
-        std::getline(iss_line, token, ',');
-        istringstream(token)>>_exp;
-        std::getline(iss_line, token, ',');
-        istringstream(token)>>_gain;
-
-        // fill data
-        man_exp=_exp;
-        man_gain=_gain;
-    }
-
-    // auto
-    {
-        int _top=0,_bottom=0,_des=0;
-
-        istringstream iss_line(settingsList.at(24));
-        //The first word, ignore
-        std::getline(iss_line, token, ',');
-
-        std::getline(iss_line, token, ',');
-        istringstream(token)>>_top;
-
-        std::getline(iss_line, token, ',');
-        istringstream(token)>>_bottom;
-
-        std::getline(iss_line, token, ',');
-        istringstream(token)>>_des;
-        // fill data
-        auto_EG_top=_top;
-        auto_EG_bottom=_bottom;
-        auto_EG_des=_des;
-    }
-
-    // AE_MG
-    {
-        int _top=0,_bottom=0,_des=0,_gain=0;
-
-        istringstream iss_line(settingsList.at(25));
-
-        //The first word, ignore
-        std::getline(iss_line, token, ',');
-
-        std::getline(iss_line, token, ',');
-        istringstream(token)>>_top;
-        std::getline(iss_line, token, ',');
-        istringstream(token)>>_bottom;
-        std::getline(iss_line, token, ',');
-        istringstream(token)>>_des;
-        std::getline(iss_line, token, ',');
-        istringstream(token)>>_gain;
-        // fill data
-        auto_E_man_G_Etop=_top;
-        auto_E_man_G_Ebottom=_bottom;
-        auto_E_man_G=_gain;
-    }
-    // imu_port_name
-    {
-        istringstream iss_line(settingsList.at(26));
-        std::getline(iss_line, token, ',');
-
-        imu_port_name = token.c_str();
-
-        std::getline(iss_line, token, ',');
-        istringstream(token)>>VI_FIFO_matcher;
-    }
-    // imu acc bias
-    {
-        istringstream iss_line(settingsList.at(28));
-        //The first word, ignore
-        std::getline(iss_line, token, ',');
-        std::getline(iss_line, token, ',');
-        istringstream(token)>>imu_acc_bias_X;
-    }
-    {
-        istringstream iss_line(settingsList.at(29));
-        //The first word, ignore
-        std::getline(iss_line, token, ',');
-        std::getline(iss_line, token, ',');
-        istringstream(token)>>imu_acc_bias_Y;
-    }
-    {
-        istringstream iss_line(settingsList.at(30));
-        //The first word, ignore
-        std::getline(iss_line, token, ',');
-        std::getline(iss_line, token, ',');
-        istringstream(token)>>imu_acc_bias_Z;
-    }
-
-    // show settings
-//    cout<<endl<<"data_mode : "<<data_mode<<endl;
-//    for(int i=0; i<13; i++)
-//    {
-//        cout<<"mode : "<<(i+1)<<endl;
-//        cout<<"fps : "<<modes_settings[i][3]<<endl;
-//        cout<<"HB : "<<modes_settings[i][1]<<endl;
-//        cout<<"visensor_cam_selection : "<<modes_settings[i][0]<<endl;
-//        cout<<"res : "<<modes_settings[i][2]<<endl<<endl;
-//    }
-//    cout<<"EG_mode : "<<EG_mode<<endl;
-//    cout<<"man_exp : "<<man_exp<<endl;
-//    cout<<"man_gain : "<<man_gain<<endl;
-//    cout<<"auto_EG_top : "<<auto_EG_top<<endl;
-//    cout<<"auto_EG_bottom : "<<auto_EG_bottom<<endl;
-//    cout<<"auto_EG_des : "<<auto_EG_des<<endl;
-//    cout<<"auto_E_man_G_Etop : "<<auto_E_man_G_Etop<<endl;
-//    cout<<"auto_E_man_G_Ebottom : "<<auto_E_man_G_Ebottom<<endl;
-//    cout<<"auto_E_man_G : "<<auto_E_man_G<<endl;
-//    cout<<"VI_FIFO_matcher : "<<VI_FIFO_matcher<<endl;
-//    cout<<"imu_acc_bias_X :  "<<imu_acc_bias_X<<endl;
-//    cout<<"imu_acc_bias_Y :  "<<imu_acc_bias_Y<<endl;
-//    cout<<"imu_acc_bias_Z :  "<<imu_acc_bias_Z<<endl;
-//    cout<<"imu_port_name :  "<<imu_port_name<<endl<<endl;
-
-    // 预设模式+手动模式
-    current_FPS=modes_settings[data_mode-1][3];
-    gFPS = current_FPS;
-    visensor_resolution_status=modes_settings[data_mode-1][2];
-    current_HB=modes_settings[data_mode-1][1];
-    visensor_cam_selection=modes_settings[data_mode-1][0];
-
-    //****************************************************************************
-
-
-    if(visensor_cam_selection==0)gSelectCam = 3;
-    else if(visensor_cam_selection==2)gSelectCam = 1;
-    else if(visensor_cam_selection==1)gSelectCam = 2;
-
-    //Add: AGC/AEC Skip frames
-    agc_aec_skip_frame = (int)(visensor_get_hardware_fps()/10);
-}
-*/
 
 // setters
 void visensor_set_auto_EG(int E_AG)
 {
-    /*-- BZ removed:
-    if(!allow_settings_change)
-    {
-        cout<<"settings FIXED !"<<endl;
-        return;
-    }
-    */
     EG_mode=E_AG;
 }
 void visensor_set_exposure(int _man_exp)
 {
-    /*-- BZ removed:
-    if(!allow_settings_change)
-    {
-        cout<<"settings FIXED !"<<endl;
-        return;
-    }
-    */
     man_exp=_man_exp;
 }
 void visensor_set_gain(int _man_gain)
 {
-    /*-- BZ removed:
-    if(!allow_settings_change)
-    {
-        cout<<"settings FIXED !"<<endl;
-        return;
-    }
-    */    
     man_gain=_man_gain;
     auto_E_man_G=_man_gain;
 }
 void visensor_set_max_autoExp(int max_exp)
 {
-    if(!allow_settings_change)
-    {
-        cout<<"settings FIXED !"<<endl;
-        return;
-    }
     auto_EG_top=max_exp;
 }
 void visensor_set_min_autoExp(int min_exp)
 {
-    if(!allow_settings_change)
-    {
-        cout<<"settings FIXED !"<<endl;
-        return;
-    }
     auto_EG_bottom=min_exp;
 }
 void visensor_set_resolution(bool set_wvga)
 {
-    if(!allow_settings_change)
-    {
-        cout<<"settings FIXED !"<<endl;
-        return;
-    }
     visensor_resolution_status=set_wvga;
 }
 void visensor_set_fps_mode(bool fps_mode)
 {
-    if(!allow_settings_change)
-    {
-        cout<<"settings FIXED !"<<endl;
-        return;
-    }
     if(fps_mode==true)
     {
         gFPS=54;
@@ -489,68 +200,26 @@ void visensor_set_fps_mode(bool fps_mode)
 }
 void visensor_set_current_HB(int HB)
 {
-    if(!allow_settings_change)
-    {
-        cout<<"settings FIXED !"<<endl;
-        return;
-    }
     current_HB=HB;
 }
 void visensor_set_desired_bin(int db)
 {
-    if(!allow_settings_change)
-    {
-        cout<<"settings FIXED !"<<endl;
-        return;
-    }
     auto_EG_des=db;
 }
 void visensor_set_cam_selection_mode(int _visensor_cam_selection)
 {
-    if(!allow_settings_change)
-    {
-        cout<<"settings FIXED !"<<endl;
-        return;
-    }
     visensor_cam_selection=_visensor_cam_selection;
 }
 void visensor_set_imu_bias(float bx,float by,float bz)
 {
-    if(!allow_settings_change)
-    {
-        cout<<"settings FIXED !"<<endl;
-        return;
-    }
     imu_acc_bias_X=bx;
     imu_acc_bias_Y=by;
     imu_acc_bias_Z=bz;
 }
 void visensor_set_imu_portname(char* input_name)
 {
-    if(!allow_settings_change)
-    {
-        cout<<"settings FIXED !"<<endl;
-        return;
-    }
     imu_port_name=input_name;
 }
-/*-- bz removed
-void visensor_set_current_mode(int _mode)
-{
-    if(!allow_settings_change||_mode>13||_mode<=0)
-    {
-        cout<<"settings FIXED !"<<endl;
-        return;
-    }
-    data_mode=_mode;
-    // 预设模式+手动模式
-    current_FPS=modes_settings[data_mode-1][3];
-    gFPS=current_FPS;
-    visensor_resolution_status=modes_settings[data_mode-1][2];
-    current_HB=modes_settings[data_mode-1][1];
-    visensor_cam_selection=modes_settings[data_mode-1][0];
-}
-*/
 // getters
 int visensor_get_EG_mode()
 {
@@ -608,57 +277,6 @@ const char* visensor_get_imu_portname()
 {
     return imu_port_name.c_str();
 }
-/*-- bz removed
-void visensor_save_current_settings()
-{
-    // 保存设置参数到原配置文件
-    ofstream f;
-    f.open(visensor_settings_file_name.c_str());
-    f.close();
-    f.open(visensor_settings_file_name.c_str());
-
-    f << fixed;
-    // start writing settings file
-    f<<'#'<<endl<<"Mode"<<endl;
-    f<<data_mode<<endl<<'#'<<endl<<"HighSpeed Pre-Set"<<endl;
-    f<<"m1,left,"<<modes_settings[0][1]<<",VGA,108"<<endl;
-    f<<"m2,right,"<<modes_settings[1][1]<<",VGA,108"<<endl;
-    f<<"m3,left,"<<modes_settings[2][1]<<",WVGA,108"<<endl;
-    f<<"m4,right,"<<modes_settings[3][1]<<",WVGA,108"<<endl;
-    f<<"m5,stereo,"<<modes_settings[4][1]<<",VGA,54"<<endl;
-    f<<"m6,stereo,"<<modes_settings[5][1]<<",WVGA,54"<<endl;
-
-    f<<"#"<<endl<<"Normal Pre-Set"<<endl;
-
-    f<<"m7,left,"<<modes_settings[6][1]<<",VGA,54"<<endl;
-    f<<"m8,right,"<<modes_settings[7][1]<<",VGA,54"<<endl;
-    f<<"m9,left,"<<modes_settings[8][1]<<",WVGA,54"<<endl;
-    f<<"m10,right,"<<modes_settings[9][1]<<",WVGA,54"<<endl;
-    f<<"m11,stereo,"<<modes_settings[10][1]<<",VGA,27"<<endl;
-    f<<"m12,stereo,"<<modes_settings[11][1]<<",WVGA,27"<<endl;
-
-    f<<"#"<<endl<<"m13,Manual Mode"<<endl<<modes_settings[12][0]
-     <<endl<<modes_settings[12][1]<<endl;
-    if(modes_settings[12][2]==0)f<<"VGA"<<endl;
-    else f<<"WVGA"<<endl;
-    f<<modes_settings[12][3]<<endl;
-
-    f<<"#"<<endl<<"EG_mode"<<endl<<EG_mode<<endl;
-    f<<"manual,"<<man_exp<<","<<man_gain<<endl;
-    f<<"auto,"<<auto_EG_top<<","<<auto_EG_bottom<<","<<auto_EG_des<<endl;
-    f<<"autoexp_manualgain,"<<auto_E_man_G_Etop<<","<<auto_E_man_G_Ebottom<<","<<auto_EG_des<<","<<auto_E_man_G<<endl;
-
-
-    f<<imu_port_name<<","<<VI_FIFO_matcher<<endl<<"#"<<endl<<"IMU-acc-bias"<<endl;
-    f<<"Gx,"<<imu_acc_bias_X<<endl;
-    f<<"Gy,"<<imu_acc_bias_Y<<endl;
-
-    f<<"Gz,"<<imu_acc_bias_Z<<endl<<"#"<<endl;
-
-    f.close();
-}
-*/
-
 
 /*****************************************************************************/
 
@@ -741,6 +359,21 @@ int camera_i2c_write(int cam_no, unsigned char reg,int value)
     }
     //printf("I2C Write Success...Cam:%d, Addr:0x%02X, Reg:0x%02X, Write:0x%04X\r\n",cam_no,CAM_I2C_ADDR,reg,value);
     return r;
+}
+
+bool check_img(int cam_no,unsigned char *pImg)
+{
+	int pass=0;
+
+    if(!visensor_resolution_status)pass = (pImg[IMG_SIZE_VGA+0]==0xFF&&pImg[IMG_SIZE_VGA+1]==0x00&&pImg[IMG_SIZE_VGA+2]==0xFE&&pImg[IMG_SIZE_VGA+3]==0x01);
+    else pass = (pImg[IMG_SIZE_WVGA+0]==0xFF&&pImg[IMG_SIZE_WVGA+1]==0x00&&pImg[IMG_SIZE_WVGA+2]==0xFE&&pImg[IMG_SIZE_WVGA+3]==0x01);
+    if(pass == 0)
+    {
+        control_camera(cam_no,fps_control());
+//        printf("Cam%d image check error!\n",cam_no);
+	}
+	
+	return pass!=0;
 }
 
 int check_img(int cam_no,unsigned char *pImg,unsigned char *pImgPass)
@@ -836,11 +469,48 @@ void cam1_write_egmode()
     }
 }
 
+int cam1_inner(int count)
+{
+	int r,transferred = 0;	
+	int im_buf_size=0;	
+	struct timeval cap_systime;
+    double time_offset=1.0f/visensor_get_hardware_fps();	
+	
+
+	//for(gFrameCam1=0; gFrameCam1<FRAME_CLUST; gFrameCam1++)
+	{
+		//if(shut_down_tag)break;
+		//im1[gFrameCam1].pass=0;
+		im_buf_size = (visensor_resolution_status==1?IMG_BUF_SIZE_WVGA:IMG_BUF_SIZE_VGA);
+		r = cyusb_bulk_transfer(pcam1_handle, 0x82, im1/*[gFrameCam1]*/.data, im_buf_size, &transferred, 100);
+		gettimeofday(&cap_systime,NULL);
+		//cam1_write_egmode();
+		im1/*[gFrameCam1]*/.timestamp = cap_systime.tv_sec+0.000001*cap_systime.tv_usec-time_offset;
+		if(r)printf("cam1 bulk transfer returned: %d\n",r);
+		//check_img(1,im1[gFrameCam1].data,&im1[gFrameCam1].pass);
+		/*
+		if(im1[gFrameCam1].pass==1)
+		{
+			count++;
+			im1[gFrameCam1].count=count;
+		}
+		*/
+	}
+
+}
+
+int cam2_inner(int count);
+
+static bool accepted1=true;
+static bool accepted2=true;
+static bool accepted12=true;
+
+
 void *cam1_capture(void*)
 {
     set_camreg_default(1);
-    int r,transferred = 0;
-    camera_i2c_write(1,0x07,0x0188);//Normal
+
+	camera_i2c_write(1,0x07,0x0188);//Normal
     camera_i2c_write(1,0x06,0x002D);//VB
     // cmos设置
     camera_i2c_write(1,0x05,current_HB);//HB
@@ -852,39 +522,29 @@ void *cam1_capture(void*)
     cam1_write_egmode();
 
     control_camera(1,fps_control());
-    usleep(100);
+	usleep(100);
+	control_camera(1,STANDBY_SHORT);
+	usleep(100);
 
     int ctt=0;
-    double time_offset=1.0f/visensor_get_hardware_fps();
-    control_camera(1,STANDBY_SHORT);
-    struct timeval cap_systime;
-    int im_buf_size=0;
-    uint32_t count=0;
+	int count1=0;	
     while(!shut_down_tag)
     {
         ctt++;
         if(ctt>=4)	//该数值越大，则帧同步的周期越长，同步频率越小
         {
-            control_camera(1,STANDBY_SHORT);
+            //control_camera(1,STANDBY_SHORT);
             ctt = 0;
-        }
-        for(gFrameCam1=0; gFrameCam1<FRAME_CLUST; gFrameCam1++)
-        {
-            if(shut_down_tag)break;
-            im1[gFrameCam1].pass=0;
-            im_buf_size = (visensor_resolution_status==1?IMG_BUF_SIZE_WVGA:IMG_BUF_SIZE_VGA);
-            r = cyusb_bulk_transfer(pcam1_handle, 0x82, im1[gFrameCam1].data, im_buf_size, &transferred, 200);
-            gettimeofday(&cap_systime,NULL);
-            cam1_write_egmode();
-            im1[gFrameCam1].timestamp = cap_systime.tv_sec+0.000001*cap_systime.tv_usec-time_offset;
-            if(r)printf("cam1 bulk transfer returned: %d\n",r);
-            check_img(1,im1[gFrameCam1].data,&im1[gFrameCam1].pass);
-            if(im1[gFrameCam1].pass==1)
-            {
-                count++;
-                im1[gFrameCam1].count=count;
-            }
-        }
+		}
+		
+		if( accepted12 )
+		{
+			count1=cam1_inner(count1);
+			bool available=check_img(1,im1.data);
+			if( available ){ accepted1=false; }
+		}
+
+		//usleep(10);
     }
 
     pthread_exit(NULL);
@@ -931,11 +591,41 @@ void cam2_write_egmode()
     
 }
 
+int cam2_inner(int count)
+{
+	int r,transferred = 0;
+	double time_offset=1.0f/visensor_get_hardware_fps();
+    struct timeval cap_systime;
+    int im_buf_size=0;
+
+	//for(gFrameCam2=0; gFrameCam2<FRAME_CLUST; gFrameCam2++)
+	{
+		//if(shut_down_tag)break;
+		im2/*[gFrameCam2]*/.pass=0;
+		im_buf_size = (visensor_resolution_status==1?IMG_BUF_SIZE_WVGA:IMG_BUF_SIZE_VGA);
+		r = cyusb_bulk_transfer(pcam2_handle, 0x82, im2/*[gFrameCam2]*/.data, im_buf_size, &transferred, 100);
+		gettimeofday(&cap_systime,NULL);
+		//cam2_write_egmode();
+		im2/*[gFrameCam2]*/.timestamp = cap_systime.tv_sec+0.000001*cap_systime.tv_usec-time_offset;
+		if(r)printf("cam2 bulk transfer returned: %d\n",r);
+		//check_img(2,im2[gFrameCam2].data,&im2[gFrameCam2].pass);
+		/*
+		if(im2[gFrameCam2].pass==1)
+		{
+			count++;
+			im2[gFrameCam2].count=count;
+		}
+		*/
+	}
+
+	return count;
+}
+
 void *cam2_capture(void*)
 {
     set_camreg_default(2);
-    int r,transferred = 0;
-    camera_i2c_write(2,0x07,0x0188);//Normal
+
+	camera_i2c_write(2,0x07,0x0188);//Normal
     camera_i2c_write(2,0x06,0x002D);//VB
     // cmos设置
     camera_i2c_write(2,0x05,current_HB);//HB
@@ -944,37 +634,30 @@ void *cam2_capture(void*)
 
     cam2_write_egmode();
 
-    control_camera(2,fps_control());
-    usleep(100);
+	control_camera(2,fps_control());
+	usleep(100);
+	control_camera(2,STANDBY_SHORT);
+	usleep(100);
 
-    double time_offset=1.0f/visensor_get_hardware_fps();
-    struct timeval cap_systime;
-    int im_buf_size=0;
-    uint32_t count=0;
+	
+	int count2=0;		
     while(!shut_down_tag)
     {
-        for(gFrameCam2=0; gFrameCam2<FRAME_CLUST; gFrameCam2++)
-        {
-            if(shut_down_tag)break;
-            im2[gFrameCam2].pass=0;
-            im_buf_size = (visensor_resolution_status==1?IMG_BUF_SIZE_WVGA:IMG_BUF_SIZE_VGA);
-            r = cyusb_bulk_transfer(pcam2_handle, 0x82, im2[gFrameCam2].data, im_buf_size, &transferred, 200);
-            gettimeofday(&cap_systime,NULL);
-            cam2_write_egmode();
-            im2[gFrameCam2].timestamp = cap_systime.tv_sec+0.000001*cap_systime.tv_usec-time_offset;
-            if(r)printf("cam2 bulk transfer returned: %d\n",r);
-            check_img(2,im2[gFrameCam2].data,&im2[gFrameCam2].pass);
-            if(im2[gFrameCam2].pass==1)
-            {
-                count++;
-                im2[gFrameCam2].count=count;
-            }
-        }
+
+		if( accepted12 )
+		{
+			count2=cam2_inner(count2);
+			bool available=check_img(2,im2.data);
+			if( available ){ accepted2=false; }
+		}
+
+		//usleep(10);
     }
 
     pthread_exit(NULL);
 }
 
+/*
 static int visensor_get_latest_count(struct img_s im[], int* index=NULL)
 {
     int max_count=0;
@@ -992,57 +675,77 @@ static int visensor_get_latest_count(struct img_s im[], int* index=NULL)
         *index=temp_index;
     return max_count;
 }
+*/
 
+/*
 static bool visensor_is_img_new(struct img_s im[], int* current_count)
 {
+	return true;
+
     int count = visensor_get_latest_count(im);
     if(count<=*current_count)
         return false;
     *current_count = count;
     return true;
 }
+*/
 
 bool visensor_is_left_img_new()
 {
-    static int current_count=-1;
-    return visensor_is_img_new(im1,&current_count);
+    //static int current_count=-1;
+    //return visensor_is_img_new(im1,&current_count);
+	return !accepted1;
 }
 
 bool visensor_is_right_img_new()
 {
-    static int current_count=-1;
-    return visensor_is_img_new(im2,&current_count);
+    //static int current_count=-1;
+    //return visensor_is_img_new(im2,&current_count);
+
+	return !accepted2;
 }
 
 int visensor_get_left_latest_img(unsigned char* img, double* timestamp, visensor_imudata* imudata)
 {
+	/*
     int index;
     int count = visensor_get_latest_count(im1, &index);
     if(index<0)
-        return -1;
+		return -1;
+	*/
 
     int im_size = (visensor_resolution_status==1?IMG_SIZE_WVGA:IMG_SIZE_VGA);
-    memcpy(img,im1[index].data,im_size);
+    memcpy(img,im1/*[index]*/.data,im_size);
     if(timestamp!=NULL)
-        *timestamp = im1[index].timestamp;
+        *timestamp = im1/*[index]*/.timestamp;
     if(imudata!=NULL)
         visensor_get_imudata_from_timestamp(imudata,*timestamp);
-    return 0;
+	
+	accepted1=true;
+	if(accepted2){accepted12=true;}
+	
+	return 0;
 }
 
 int visensor_get_right_latest_img(unsigned char* img, double* timestamp, visensor_imudata* imudata)
 {
+	/*
     int index;
     int count = visensor_get_latest_count(im2, &index);
     if(index<0)
         return -1;
+	*/
 
     int im_size = (visensor_resolution_status==1?IMG_SIZE_WVGA:IMG_SIZE_VGA);
-    memcpy(img,im2[index].data,im_size);
+    memcpy(img,im2/*[index]*/.data,im_size);
     if(timestamp!=NULL)
-        *timestamp = im2[index].timestamp;
+        *timestamp = im2/*[index]*/.timestamp;
     if(imudata!=NULL)
-        visensor_get_imudata_from_timestamp(imudata,*timestamp);
+		visensor_get_imudata_from_timestamp(imudata,*timestamp);
+		
+	accepted2=true;
+	if(accepted1){accepted12=true;}
+
     return 0;
 }
 
@@ -1114,14 +817,14 @@ int visensor_Start_Cameras(
 		case CAMERAMODE_HIGHSPEED_RIGHT_VGA:	{ current_HB=150; break; }
 		case CAMERAMODE_HIGHSPEED_LEFT_WVGA:	{ current_HB=150; break; }
 		case CAMERAMODE_HIGHSPEED_RIGHT_WVGA:	{ current_HB=150; break; }
-		case CAMERAMODE_HIGHSPEED_STEREO_VGA:	{ current_HB=250; break; }
-		case CAMERAMODE_HIGHSPEED_STEREO_WVGA:	{ current_HB=270; break; }
+		case CAMERAMODE_HIGHSPEED_STEREO_VGA:	{ current_HB=150; break; }
+		case CAMERAMODE_HIGHSPEED_STEREO_WVGA:	{ current_HB=150; break; }
 		case CAMERAMODE_NORMAL_LEFT_VGA:		{ current_HB=150; break; }
 		case CAMERAMODE_NORMAL_RIGHT_VGA:		{ current_HB=150; break; }
 		case CAMERAMODE_NORMAL_LEFT_WVGA:		{ current_HB=150; break; }
 		case CAMERAMODE_NORMAL_RIGHT_WVGA:		{ current_HB=150; break; }
-		case CAMERAMODE_NORMAL_STEREO_VGA:		{ current_HB=274; break; }
-		case CAMERAMODE_NORMAL_STEREO_WVGA:		{ current_HB=162; break; }	
+		case CAMERAMODE_NORMAL_STEREO_VGA:		{ current_HB=150; break; }
+		case CAMERAMODE_NORMAL_STEREO_WVGA:		{ current_HB=175; break; }	
 	}
 
 	gFPS=current_FPS;	
