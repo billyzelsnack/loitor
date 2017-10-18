@@ -19,6 +19,12 @@
 
 #include <libusb-1.0/libusb.h>
 
+#include <thread>
+#include <mutex>
+
+std::mutex gMutexLeft;
+std::mutex gMutexRight;
+
 #include "loitorimu.h"
 #include "loitorusb.h"
 #include "loitorcam.h"
@@ -37,7 +43,7 @@
 #define IMG_HEIGHT_WVGA 	480
 #define IMG_SIZE_WVGA 	(IMG_WIDTH_WVGA*IMG_HEIGHT_WVGA)
 #define IMG_BUF_SIZE_WVGA (IMG_SIZE_WVGA+0x200)
-#define FRAME_CLUST 54
+//#define FRAME_CLUST 54
 #define FRAME_CLUST 2
 
 /*CAMERA CONTROL INSTRUCTION MACRO*/
@@ -72,6 +78,11 @@ bool left_fresh=false;
 bool right_fresh=false;
 
 bool allow_settings_change=true;
+
+
+bool update1=false;
+bool update2=false;
+
 
 /****************************************************/
 //-- bz removed int data_mode;
@@ -162,16 +173,19 @@ bool visensor_is_rightcam_open()
 // setters
 void visensor_set_auto_EG(int E_AG)
 {
-    EG_mode=E_AG;
+   EG_mode=E_AG;
+   update1=true;update2=true;  
 }
 void visensor_set_exposure(int _man_exp)
 {
     man_exp=_man_exp;
+	update1=true;update2=true;  	
 }
 void visensor_set_gain(int _man_gain)
 {
     man_gain=_man_gain;
-    auto_E_man_G=_man_gain;
+	auto_E_man_G=_man_gain;
+	update1=true;update2=true;  	
 }
 void visensor_set_max_autoExp(int max_exp)
 {
@@ -484,7 +498,7 @@ int cam1_inner(int count)
 		im_buf_size = (visensor_resolution_status==1?IMG_BUF_SIZE_WVGA:IMG_BUF_SIZE_VGA);
 		r = cyusb_bulk_transfer(pcam1_handle, 0x82, im1/*[gFrameCam1]*/.data, im_buf_size, &transferred, 100);
 		gettimeofday(&cap_systime,NULL);
-		//cam1_write_egmode();
+		if(update1){cam1_write_egmode();update1=false;}
 		im1/*[gFrameCam1]*/.timestamp = cap_systime.tv_sec+0.000001*cap_systime.tv_usec-time_offset;
 		if(r)printf("cam1 bulk transfer returned: %d\n",r);
 		//check_img(1,im1[gFrameCam1].data,&im1[gFrameCam1].pass);
@@ -605,7 +619,7 @@ int cam2_inner(int count)
 		im_buf_size = (visensor_resolution_status==1?IMG_BUF_SIZE_WVGA:IMG_BUF_SIZE_VGA);
 		r = cyusb_bulk_transfer(pcam2_handle, 0x82, im2/*[gFrameCam2]*/.data, im_buf_size, &transferred, 100);
 		gettimeofday(&cap_systime,NULL);
-		//cam2_write_egmode();
+		if(update2){cam2_write_egmode();update2=false;}
 		im2/*[gFrameCam2]*/.timestamp = cap_systime.tv_sec+0.000001*cap_systime.tv_usec-time_offset;
 		if(r)printf("cam2 bulk transfer returned: %d\n",r);
 		//check_img(2,im2[gFrameCam2].data,&im2[gFrameCam2].pass);
@@ -714,13 +728,15 @@ int visensor_get_left_latest_img(unsigned char* img, double* timestamp, visensor
 		return -1;
 	*/
 
+	std::unique_lock<std::mutex> lock(gMutexLeft);
     int im_size = (visensor_resolution_status==1?IMG_SIZE_WVGA:IMG_SIZE_VGA);
     memcpy(img,im1/*[index]*/.data,im_size);
     if(timestamp!=NULL)
         *timestamp = im1/*[index]*/.timestamp;
     if(imudata!=NULL)
         visensor_get_imudata_from_timestamp(imudata,*timestamp);
-	
+	lock.unlock();
+
 	accepted1=true;
 	if(accepted2){accepted12=true;}
 	
@@ -736,12 +752,14 @@ int visensor_get_right_latest_img(unsigned char* img, double* timestamp, visenso
         return -1;
 	*/
 
+	std::unique_lock<std::mutex> lock(gMutexRight);	
     int im_size = (visensor_resolution_status==1?IMG_SIZE_WVGA:IMG_SIZE_VGA);
     memcpy(img,im2/*[index]*/.data,im_size);
     if(timestamp!=NULL)
         *timestamp = im2/*[index]*/.timestamp;
     if(imudata!=NULL)
 		visensor_get_imudata_from_timestamp(imudata,*timestamp);
+	lock.unlock();	
 		
 	accepted2=true;
 	if(accepted1){accepted12=true;}
@@ -818,7 +836,7 @@ int visensor_Start_Cameras(
 		case CAMERAMODE_HIGHSPEED_LEFT_WVGA:	{ current_HB=150; break; }
 		case CAMERAMODE_HIGHSPEED_RIGHT_WVGA:	{ current_HB=150; break; }
 		case CAMERAMODE_HIGHSPEED_STEREO_VGA:	{ current_HB=150; break; }
-		case CAMERAMODE_HIGHSPEED_STEREO_WVGA:	{ current_HB=150; break; }
+		case CAMERAMODE_HIGHSPEED_STEREO_WVGA:	{ current_HB=175; break; }
 		case CAMERAMODE_NORMAL_LEFT_VGA:		{ current_HB=150; break; }
 		case CAMERAMODE_NORMAL_RIGHT_VGA:		{ current_HB=150; break; }
 		case CAMERAMODE_NORMAL_LEFT_WVGA:		{ current_HB=150; break; }

@@ -1,9 +1,19 @@
 #include "ros/ros.h" 
 #include "std_msgs/String.h"
 #include <std_msgs/UInt8.h>
+#include <std_msgs/Header.h>
 #include <image_transport/image_transport.h>
 #include <cv_bridge/cv_bridge.h>
 #include "sensor_msgs/Imu.h"
+#include "sensor_msgs/CameraInfo.h"
+//#include <tf/transform_broadcaster.h>
+
+#include "nav_msgs/Odometry.h"
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_ros/buffer.h>
+#include <tf2_ros/transform_listener.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_ros/transform_broadcaster.h>
 
 #include <dynamic_reconfigure/server.h>
 #include <loitor_ros/LoitorConfig.h>
@@ -26,21 +36,36 @@
 
 
 #include <sstream>
+#include <thread>
+#include <mutex>
 
 
-using namespace std;
+//using namespace std;
 using namespace cv;
 
 
+
+std::mutex gMutex;
+
+
 ros::Publisher pub_imu;
+ros::Publisher pub_odom;
 
 ros::Publisher pub_msgcam;
 ros::Publisher pub_msgimu;
+
+ros::Publisher pub_info_left;
+ros::Publisher pub_info_right;
+
 
 ros::Subscriber sub_msgcam;
 ros::Subscriber sub_msgimu;
 
 static loitor_ros::LoitorConfig sConfig;
+
+//const string frame_id="/camera_link";
+
+//const string frame_id="/stereo_camera";
 
 
 
@@ -82,7 +107,7 @@ void* imu_data_stream(void *)
 			if(!visensor_get_imudata_latest(&imudata))
 			{
 				sensor_msgs::Imu imu_msg;
-				imu_msg.header.frame_id = "/imu";
+				imu_msg.header.frame_id = "imu_link";
 				ros::Time imu_time;
 				imu_time.sec=imudata.timestamp;
 				imu_time.nsec=1000*imudata.timestamp;
@@ -116,15 +141,17 @@ void visensor_swap();
  
 void callback(loitor_ros::LoitorConfig& config, uint32_t level) 
 {
+	std::unique_lock<std::mutex> lock(gMutex);	
+
 	sConfig=config;
 
 	ROS_INFO( "EG_MODE %d", config.EG_MODE );
-	visensor_set_auto_EG( config.EG_MODE );
-
-	ROS_INFO( "man_exp %d", config.man_exp );
-	visensor_set_exposure( config.man_exp);
-
+	ROS_INFO( "man_exp %d", config.man_exp );	
 	ROS_INFO( "man_gain %d", config.man_gain );
+
+
+	visensor_set_auto_EG( config.EG_MODE );
+	visensor_set_exposure( config.man_exp);
 	visensor_set_gain( config.man_gain);
 
 	//visensor_swap();
@@ -146,13 +173,15 @@ boost::recursive_mutex dynamic_reconfigure_mutex_;
 
 void updateConfig()
 {
-	boost::recursive_mutex::scoped_lock dyn_reconf_lock(dynamic_reconfigure_mutex_);	
+	std::unique_lock<std::mutex> lock(gMutex);	
+
 	gServer->updateConfig(sConfig);
-	dyn_reconf_lock.unlock();
 }
 
 void callback_msgcam(const loitor_ros::LoitorCam::ConstPtr& msg)
 {
+	std::unique_lock<std::mutex> lock(gMutex);	
+	
 	ROS_INFO("set_exposure [%d]", msg->man_exp );
 	visensor_set_exposure( msg->man_exp );
 	sConfig.man_exp=msg->man_exp;
@@ -161,11 +190,14 @@ void callback_msgcam(const loitor_ros::LoitorCam::ConstPtr& msg)
 
 void callback_msgimu(const loitor_ros::LoitorIMU::ConstPtr& msg)
 {
+	std::unique_lock<std::mutex> lock(gMutex);	
+	
 	//ROS_INFO("set_gain [%d]", msg->data );
 	//visensor_set_gain( msg->data );
 	//sConfig.man_gain=msg->data;
 	//updateConfig();
 }
+
 
 int main(int argc, char **argv)
 { 
@@ -207,8 +239,11 @@ int main(int argc, char **argv)
 
 	int r = visensor_Start_Cameras(
 		CAMERAMODE_NORMAL_STEREO_WVGA,
+		//CAMERAMODE_HIGHSPEED_STEREO_WVGA,
 		EGMODE_MANUAL_MANUAL,
-		sConfig.man_exp, sConfig.man_gain,
+		//sConfig.man_exp, sConfig.man_gain,
+		//5, 127,
+		250, 127,
 		300, 5, 58,
 		300, 5, 200,
 		"/dev/ttyUSB0", 5,
@@ -255,26 +290,156 @@ int main(int argc, char **argv)
 	printf("Failed to create thread imu_data_stream\r\n");
 	*/
 
-	pub_msgcam = nh.advertise<loitor_ros::LoitorCam>("/loitor_node/get_cam", 1 );
+
+
+	
+	/*
+	Camera.fx: 448.803530
+	Camera.fy: 448.803530
+	Camera.cx: 366.972919
+	Camera.cy: 242.598818
+	*/
+
+	int seq=0;
+
+	sensor_msgs::CameraInfo info_left;
+	info_left.header.seq=0;
+	info_left.header.stamp=ros::Time::now();
+	info_left.header.frame_id=std::string("left_link");
+	info_left.height=480;	
+	info_left.width=752;
+	info_left.distortion_model="plumb_bob";
+	info_left.D.push_back(-0.4082720348293939);
+	info_left.D.push_back(0.15640744929855369);
+	info_left.D.push_back(-0.00010483438752646738);
+	info_left.D.push_back(0.00015318217681164253);
+	info_left.D.push_back(0.0);
+
+	info_left.K[0]=460.86210251750975; 
+	info_left.K[1]=0.0;
+	info_left.K[2]=349.31462624678466;
+	info_left.K[3]=0.0;
+	info_left.K[4]=460.5167045663297;
+	info_left.K[5]=262.51727165666836;
+	info_left.K[6]=0.0;
+	info_left.K[7]=0.0;
+	info_left.K[8]=1.0;
+	
+	info_left.R[0]=0.999974368893191;
+	info_left.R[1]=-0.0012394558679958269;
+	info_left.R[2]=0.007051617248225689;
+	info_left.R[3]=0.0012260516558872633;
+	info_left.R[4]=0.9999974341189767;
+	info_left.R[5]=0.0019048760589784617;
+	info_left.R[6]=-0.007053960164423911;
+	info_left.R[7]=-0.0018961815878928763;
+	info_left.R[8]=0.9999733227148535;
+
+	info_left.P[0]=448.8035299304444;
+	info_left.P[1]=0.0;
+	info_left.P[2]=366.9729194641113;
+	info_left.P[3]=0.0;
+	info_left.P[4]=0.0;
+	info_left.P[5]=448.8035299304444;
+	info_left.P[6]=242.59881782531738;
+	info_left.P[7]=0.0;
+	info_left.P[8]=0.0;
+	info_left.P[9]=0.0;
+	info_left.P[10]=1.0;
+	info_left.P[11]=0.0;
+	
+	info_left.binning_x=0;
+	info_left.binning_y=0;
+	info_left.roi.x_offset=0;
+	info_left.roi.y_offset=0;
+	info_left.roi.height=480;
+	info_left.roi.width=752;
+	info_left.roi.do_rectify=false;
+
+	sensor_msgs::CameraInfo info_right;
+	info_right.header.seq=0;
+	info_right.header.stamp=ros::Time::now();
+	info_right.header.frame_id=std::string("right_link");
+	info_right.height=480;
+	info_right.width=752;
+	info_right.distortion_model="plumb_bob";
+	
+	info_right.D.push_back(-0.3963313031702811);
+	info_right.D.push_back(0.13921261728908707);
+	info_right.D.push_back(0.0002743786374625205);
+	info_right.D.push_back(0.0008348992999562335);
+	info_right.D.push_back(0.0);
+
+	info_right.K[0]=459.0873954684523;
+	info_right.K[1]=0.0;
+	info_right.K[2]=372.92769732374114;
+	info_right.K[3]=0.0;
+	info_right.K[4]=458.8076221980105;
+	info_right.K[5]=223.88525060354567;
+	info_right.K[6]=0.0;
+	info_right.K[7]=0.0;
+	info_right.K[8]=1.0;
+	
+	info_right.R[0]=0.9999526729468252;
+	info_right.R[1]=0.004591964561965642;
+	info_right.R[2]=-0.00857704657567081;
+	info_right.R[3]=-0.004608257490109048;
+	info_right.R[4]=0.9999876131996607;
+	info_right.R[5]=-0.0018808004016310775;
+	info_right.R[6]=0.008568303764714956;
+	info_right.R[7]=0.0019202366280157976;
+	info_right.R[8]=0.9999614476878037;
+	
+	info_right.P[0]=448.8035299304444;
+	info_right.P[1]=0.0;
+	info_right.P[2]=366.9729194641113;
+	info_right.P[3]=-45.369437121756086;
+	info_right.P[4]=0.0;
+	info_right.P[5]=448.8035299304444;
+	info_right.P[6]=242.59881782531738;
+	info_right.P[7]=0.0;
+	info_right.P[8]=0.0;
+	info_right.P[9]=0.0;
+	info_right.P[10]=1.0;
+	info_right.P[11]=0.0;
+	
+	info_right.binning_x=0;
+	info_right.binning_y=0;
+	info_right.roi.x_offset=0;
+	info_right.roi.y_offset=0;
+	info_right.roi.height=480;
+	info_right.roi.width=752;
+	info_right.roi.do_rectify=false;
+	
+
+
+	pub_msgcam = nh.advertise<loitor_ros::LoitorCam>("/get_cam", 1 );
 	sub_msgcam = nh.subscribe("/loitor_node/set_cam", 1, callback_msgcam );
 
-	pub_msgimu = nh.advertise<loitor_ros::LoitorIMU>("/loitor_node/get_imu", 1 );
+	pub_msgimu = nh.advertise<loitor_ros::LoitorIMU>("/get_imu", 1 );
 	sub_msgimu = nh.subscribe("/loitor_node/set_imu", 1, callback_msgimu );
-	
+
+	pub_info_left=nh.advertise<sensor_msgs::CameraInfo>("/left/camera_info", 1 );
+	//pub_info_left.publish(info_left);
+
+	pub_info_right=nh.advertise<sensor_msgs::CameraInfo>("/right/camera_info", 1 );
+	//pub_info_right.publish(info_right);
+
 	// imu publisher
-	pub_imu = nh.advertise<sensor_msgs::Imu>("/loitor_node/imu", 200);
+	pub_imu = nh.advertise<sensor_msgs::Imu>("/imu", 200);
+
+	//pub_odom = nh.advertise<nav_msgs::Odometry>("/stereo_camera/odom", 1);
  
 	// publish 到这两个 topic
 	image_transport::ImageTransport it(nh);
-	image_transport::Publisher pub = it.advertise("/camera/left/image_raw", 1);
-	sensor_msgs::ImagePtr msg;
-
-	image_transport::ImageTransport it1(nh);
-	image_transport::Publisher pub1 = it1.advertise("/camera/right/image_raw", 1);
+	image_transport::Publisher pub1 = it.advertise("/left/image_raw", 1 );
 	sensor_msgs::ImagePtr msg1;
 
-	// 使用camera硬件帧率设置发布频率
-	ros::Rate loop_rate((int)hardware_fps);
+	image_transport::ImageTransport it1(nh);
+	image_transport::Publisher pub2 = it1.advertise("/right/image_raw", 1 );
+	sensor_msgs::ImagePtr msg2;
+
+	//ros::Rate loop_rate(500);//(int)hardware_fps);
 
 	int static_ct=0;
 
@@ -284,128 +449,83 @@ int main(int argc, char **argv)
 	img_time_offset.tv_usec=50021;
 	img_time_offset.tv_sec=0;
 
-	while (ros::ok())
+	/*
+	tf2_ros::TransformBroadcaster br;
+	tf2::Transform cltrans;
+	cltrans.setIdentity();
+	cltrans.setOrigin( tf2::Vector3( 0, 0, 0 ) );
+	cltrans.setRotation( tf2::Quaternion( -0.5, 0.5, -0.5, 0.5) );			
+	geometry_msgs::TransformStamped camera_link;
+	camera_link.header.stamp=ros::Time::now();//msg_time;
+	camera_link.header.frame_id=std::string("/base_link");
+	camera_link.child_frame_id=std::string("/stereo_camera");
+	camera_link.transform = tf2::toMsg(cltrans);
+	*/
+
+ 
+	while( ros::ok() )
 	{
-		imu_start_transfer=true;
+		if( visensor_get_cam_selection_mode()!=0 ){ continue; }
+		if( !visensor_is_left_img_new() || !visensor_is_right_img_new() ){ continue; }
 
-		//cout<<"visensor_get_hardware_fps() ==== "<<visensor_get_hardware_fps()<<endl;
+		bool validLeft=visensor_get_left_latest_img(img_left.data,&left_stamp,NULL);
+		bool validRight=visensor_get_right_latest_img(img_right.data,&right_stamp,NULL);
 
-		if(visensor_get_cam_selection_mode()==0)
-		{
-
-			//visensor_imudata paired_imu=visensor_get_stereoImg((char *)img_left.data,(char *)img_right.data,left_stamp,right_stamp);		
-			if( !visensor_get_left_latest_img(img_left.data,&left_stamp,NULL) &&
-				!visensor_get_right_latest_img(img_right.data,&right_stamp,NULL) )
-			{
+		cv_bridge::CvImage t_left=cv_bridge::CvImage(std_msgs::Header(), "mono8", img_left);
+		cv_bridge::CvImage t_right=cv_bridge::CvImage(std_msgs::Header(), "mono8", img_right);
 
 
-			// 显示同步数据的时间戳（单位微秒）
-			//cout<<"left_time : "<<left_stamp.tv_usec<<endl;
-			//cout<<"right_time : "<<right_stamp.tv_usec<<endl;
-			//cout<<"paired_imu time ===== "<<paired_imu.system_time.tv_usec<<endl<<endl;
-			//cout<<"visensor_get_hardware_fps() ==== "<<1.0f/visensor_get_hardware_fps()<<endl;
+		ros::Time msg_time;
+		msg_time.sec=left_stamp;
+		msg_time.nsec=1000*left_stamp;
 
-			cv_bridge::CvImage t_left=cv_bridge::CvImage(std_msgs::Header(), "mono8", img_left);
-			cv_bridge::CvImage t_right=cv_bridge::CvImage(std_msgs::Header(), "mono8", img_right);
-
-			// 加时间戳(right_time=left_time)
-			ros::Time msg_time;
-			msg_time.sec=left_stamp;
-			msg_time.nsec=1000*left_stamp;
-			t_left.header.stamp = msg_time;
+		msg1 = t_left.toImageMsg();
+		msg1->header.frame_id=std::string("left_link");
+		msg1->header.stamp = msg_time;
+		msg1->header.seq=seq;
 			
-			ros::Time msg1_time;
-			msg1_time.sec=left_stamp;
-			msg1_time.nsec=1000*left_stamp;
-			t_right.header.stamp = msg1_time;
-			t_right.header.seq=0;
-			t_left.header.seq=0;
+		msg2 = t_right.toImageMsg();
+		msg2->header.frame_id=std::string("right_link");
+		msg2->header.stamp = msg_time;
+		msg2->header.seq=seq;
 
-			msg = t_left.toImageMsg();
-			msg1 = t_right.toImageMsg();
 
-			static_ct++;
-			{
-				pub.publish(msg);
-				pub1.publish(msg1);
 				
-				loitor_ros::LoitorCam msgcam;
-				msgcam.man_exp=visensor_get_exposure();
-				msgcam.man_gain=visensor_get_gain();
-				pub_msgcam.publish(msgcam);
 
-				//loitor_ros::LoitorIMU msgimu;
-				//pub_msgimu.publish(msgimu);
 
-				static_ct=0;
-			}
+		info_left.header.stamp=msg_time;
+		info_left.header.seq=seq;
+		info_right.header.stamp=msg_time;
+		info_right.header.seq=seq;
+
+
+		std::unique_lock<std::mutex> lock(gMutex);				
+		pub1.publish(msg1);
+		pub_info_left.publish(info_left);
+		pub2.publish(msg2);
+		pub_info_right.publish(info_right);
+		lock.unlock();
+
+		/*
+		loitor_ros::LoitorCam msgcam;
+		msgcam.man_exp=visensor_get_exposure();
+		msgcam.man_gain=visensor_get_gain();
+		pub_msgcam.publish(msgcam);
+		*/
 			
-			// 显示时间戳
-			//cout<<"left_time : "<<left_stamp.tv_usec<<endl;
-			//cout<<"right_time : "<<right_stamp.tv_usec<<endl<<endl;
+		//loitor_ros::LoitorIMU msgimu;
+		//pub_msgimu.publish(msgimu);
 
-			}
-		}
-		else if(visensor_get_cam_selection_mode()==1)
-		{
-			//visensor_imudata paired_imu=visensor_get_rightImg((char *)img_right.data,right_stamp);
+		seq++;
 			
-			if( !visensor_get_right_latest_img(img_right.data,&right_stamp,NULL) )
-			{
+		// 显示时间戳
+		//cout<<"left_time : "<<left_stamp.tv_usec<<endl;
+		//cout<<"right_time : "<<right_stamp.tv_usec<<endl<<endl;
 
-			// 显示同步数据的时间戳（单位微秒）
-			//cout<<"right_time : "<<right_stamp.tv_usec<<endl;
-			//cout<<"paired_imu time ===== "<<paired_imu.system_time.tv_usec<<endl<<endl;
-
-			cv_bridge::CvImage t_right=cv_bridge::CvImage(std_msgs::Header(), "mono8", img_right);
-
-			// 加时间戳
-			ros::Time msg1_time;
-			msg1_time.sec=right_stamp;
-			msg1_time.nsec=1000*right_stamp;
-			t_right.header.stamp = msg1_time;
-			t_right.header.seq=0;
-			
-			msg1 = t_right.toImageMsg();
-			
-			pub1.publish(msg1);
-			}
-		}
-		else if(visensor_get_cam_selection_mode()==2)
-		{
-			//visensor_imudata paired_imu=visensor_get_leftImg((char *)img_left.data,left_stamp);
-			if( !visensor_get_left_latest_img(img_left.data,&left_stamp,NULL) )
-			{
-
-			// 显示同步数据的时间戳（单位微秒）
-			//cout<<"left_time : "<<left_stamp.tv_usec<<endl;
-			//cout<<"paired_imu time ===== "<<paired_imu.system_time.tv_usec<<endl<<endl;
-
-			cv_bridge::CvImage t_left=cv_bridge::CvImage(std_msgs::Header(), "mono8", img_left);
-
-			// 加时间戳
-			ros::Time msg_time;
-			msg_time.sec=left_stamp;
-			msg_time.nsec=1000*left_stamp;
-			t_left.header.stamp = msg_time;
-			t_left.header.seq=0;
-
-
-			msg = t_left.toImageMsg();
-
-			
-			static_ct++;
-			if(static_ct>=5)
-			{
-				pub.publish(msg);
-				static_ct=0;
-			}
-			}
-		}
-
+		
 		ros::spinOnce(); 
 
-		loop_rate.sleep(); 
+		//loop_rate.sleep(); 
 		
 	}
 
@@ -417,7 +537,7 @@ int main(int argc, char **argv)
 	}
 	*/
 
-	cout<<endl<<"shutting-down Cameras"<<endl;
+	std::cout<<std::endl<<"shutting-down Cameras"<<std::endl;
 
 	/* close cameras */
 	visensor_Close_Cameras();
@@ -426,14 +546,4 @@ int main(int argc, char **argv)
 	
 	return 0;
 }
-
-
-
-
-
-
-
-
-
-
 
