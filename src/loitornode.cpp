@@ -414,10 +414,10 @@ int main(int argc, char **argv)
 
 
 	pub_msgcam = nh.advertise<loitor_ros::LoitorCam>("/get_cam", 1 );
-	sub_msgcam = nh.subscribe("/loitor_node/set_cam", 1, callback_msgcam );
+	sub_msgcam = nh.subscribe("/set_cam", 1, callback_msgcam );
 
 	pub_msgimu = nh.advertise<loitor_ros::LoitorIMU>("/get_imu", 1 );
-	sub_msgimu = nh.subscribe("/loitor_node/set_imu", 1, callback_msgimu );
+	sub_msgimu = nh.subscribe("/set_imu", 1, callback_msgimu );
 
 	pub_info_left=nh.advertise<sensor_msgs::CameraInfo>("/left/camera_info", 1 );
 	//pub_info_left.publish(info_left);
